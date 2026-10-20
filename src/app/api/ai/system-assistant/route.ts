@@ -72,6 +72,26 @@ let knowledgeBase: LearnedRule[] = [
     createdAt: '2026-10-20T10:00:00Z',
     source: 'sistema',
   },
+  {
+    id: 'kb-07',
+    questionTrigger: 'Como ajustar a numeração das notas fiscais (NF-e/NFS-e)?',
+    learnedAnswer:
+      'Para ajustar a numeração:\n1. Acesse o Emissor Fiscal e clique no botão "Configurações & Certificado A1" no topo.\n2. Altere o campo "Último Nº NF-e" para a última nota já homologada no portal da SEFAZ (ex: 150).\n3. O sistema emitirá a próxima nota como 151.\n4. Para recomeçar a contagem do número 1 sem conflitos legais, mude a Série de 1 para 2.\n5. Você também pode gerenciar séries em /settings/fiscal.',
+    category: 'fiscal',
+    confidence: 100,
+    createdAt: '2026-10-20T10:00:00Z',
+    source: 'sistema',
+  },
+  {
+    id: 'kb-08',
+    questionTrigger: 'Como funciona o envio contínuo por WhatsApp e cobrança Pix?',
+    learnedAnswer:
+      'No ícone de WhatsApp ao lado de qualquer nota autorizada, você pode selecionar 4 templates:\n1. 📄 Comprovante Fiscal: DANFE oficial em PDF e XML.\n2. 🚚 Carga em Trânsito: Aviso de despacho da mercadoria ao cliente.\n3. ✅ Entrega Realizada: Confirmação de recebimento no destino.\n4. ⏰ Cobrança & Pix: Lembrete amigável de vencimento com código Pix Copia e Cola gerado na hora para liquidação imediata.',
+    category: 'operacional',
+    confidence: 100,
+    createdAt: '2026-10-20T10:00:00Z',
+    source: 'sistema',
+  },
 ];
 
 export async function GET() {

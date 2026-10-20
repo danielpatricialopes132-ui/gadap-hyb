@@ -59,6 +59,8 @@ export default function HelpAndManualView() {
   // Pre-programmed questions for rapid learning
   const quickQuestions = [
     'Como emitir uma NF-e para outro estado sem rejeição?',
+    'Como ajustar a numeração das notas fiscais (NF-e/NFS-e)?',
+    'Como funciona o envio contínuo por WhatsApp e cobrança Pix?',
     'O que fazer se a SEFAZ ou a Fiscal Contora ficar lenta?',
     'Como funciona a Carta de Correção Eletrônica (CC-e)?',
     'Como cadastrar um produto com controle de estoque?',
@@ -286,6 +288,88 @@ export default function HelpAndManualView() {
             </div>
           </div>
 
+          {/* Seção Professoral: Como Ajustar a Sequência e Numeração das Notas Fiscais */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-indigo-400" />
+              Manual Didático: Como Ajustar Séries e Sequência de Numeração de NF-e e NFS-e
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              O GADAP gerencia os números sequenciais de cada documento de forma isolada por empresa/filial. Caso sua empresa esteja migrando de outro emissor ou precise sincronizar a sequência com o portal da SEFAZ, siga o procedimento abaixo:
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block">Método 1: Ajuste Rápido no Emissor</span>
+                <h3 className="text-sm font-bold text-white">Botão "Configurações & Certificado A1"</h3>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  1. No menu lateral, abra <strong>Emissor Fiscal (NF-e/NFS-e)</strong>.<br />
+                  2. Clique em <strong>"Configurações & Certificado A1"</strong> no topo da página.<br />
+                  3. Altere o campo <strong>"Último Nº NF-e"</strong> para o último número já homologado pela SEFAZ (ex: se parou na nota 150, digite 150).<br />
+                  4. A próxima nota autorizada pelo GADAP será automaticamente a <strong>151</strong>.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Regra de Ouro SEFAZ</span>
+                <h3 className="text-sm font-bold text-white">Salto de Numeração ou Nova Série</h3>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  • <strong>Atenção aos Saltos</strong>: A SEFAZ exige que a sequência seja contínua. Caso você pule números, a contabilidade precisará fazer a <em>inutilização da numeração pulada</em>.<br />
+                  • <strong>Troca de Série Segura</strong>: Para evitar qualquer conflito com o software anterior, você pode alterar a <strong>Série para 2</strong> e iniciar novamente a numeração da nota 1.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Seção Professoral: Notificações Contínuas via WhatsApp (Evolution API) */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Send className="w-5 h-5 text-emerald-400" />
+              Manual Didático: Ciclo de Notificações Contínuas via WhatsApp & Cobrança Pix
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              O GADAP integra diretamente com a <strong>Evolution API</strong> (instância <code>ecostone</code>), permitindo enviar 4 templates especializados de comunicação com o cliente:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                <div className="text-emerald-400 font-bold text-xs flex items-center gap-1.5">
+                  <span>📄 Comprovante Fiscal</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Dispara a DANFE oficial em PDF e o link do XML autorizado na SEFAZ assim que a nota for emitida.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                <div className="text-cyan-400 font-bold text-xs flex items-center gap-1.5">
+                  <span>🚚 Carga em Trânsito</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Informa ao comprador que os itens foram conferidos, a mercadoria foi embarcada e está a caminho.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                <div className="text-indigo-400 font-bold text-xs flex items-center gap-1.5">
+                  <span>✅ Entrega Realizada</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Confirmação digital de entrega e encerramento da rota de frete para registro no histórico.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                <div className="text-amber-400 font-bold text-xs flex items-center gap-1.5">
+                  <span>⏰ Cobrança & Pix</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Lembrete amigável de vencimento acompanhado do código <strong>Pix Copia e Cola</strong> para quitação instantânea.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Dúvidas Frequentes da Operação */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
@@ -305,6 +389,26 @@ export default function HelpAndManualView() {
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed">
                 A <strong>NF-e (modelo 55)</strong> é de competência Estadual (SEFAZ) e documenta a venda de produtos físicos e mercadorias. A <strong>NFS-e</strong> é de competência Municipal (Prefeitura) e documenta a prestação de serviços sujeitos ao ISSQN (com o código de serviço LC 116).
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                Como funciona a redundância Fiscal Contora + Focus NFe?
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                O gateway universal do GADAP opera prioritariamente com a <strong>Fiscal Contora</strong>. Caso a SEFAZ ou o endpoint apresente latência anormal ou falha, o sistema executa o failover automático para a <strong>Focus NFe</strong> sem necessidade de reprocessar a nota manualmente.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                Como exportar o pacote contábil mensal?
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Na barra superior de ações do módulo fiscal, clique no botão <strong>"Pacote Contador"</strong>. O sistema compila automaticamente uma planilha auditada com todas as notas autorizadas, canceladas, valores, impostos e chaves de acesso do mês para envio à contabilidade.
               </p>
             </div>
           </div>
