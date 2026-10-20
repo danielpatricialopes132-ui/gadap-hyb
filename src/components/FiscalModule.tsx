@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { FiscalDocument, FiscalDocStatus, FiscalDocType } from '@/types/domain';
-import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2 } from 'lucide-react';
+import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot } from 'lucide-react';
 
 export default function FiscalModule() {
   const {
@@ -46,6 +46,13 @@ export default function FiscalModule() {
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [whatsAppFeedback, setWhatsAppFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // AI Copilot State
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<any | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // Settings form
   const [provider, setProvider] = useState<'focus_nfe' | 'fiscal_contora'>(
     activeCompany?.fiscalSettings.provider || 'focus_nfe'
@@ -80,6 +87,68 @@ export default function FiscalModule() {
     const firstMatchingItem = catalog.find((c) => (type === 'NFe' ? c.type === 'product' : c.type === 'service'));
     setSelectedItemId(firstMatchingItem?.id || '');
     setQuantity(1);
+    setIsIssueModalOpen(true);
+  };
+
+  const handleConsultAi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiPrompt.trim()) return;
+
+    setIsAiProcessing(true);
+    setAiError(null);
+    setAiSuggestion(null);
+
+    try {
+      const res = await fetch('/api/ai/fiscal-copilot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPrompt: aiPrompt,
+          company: {
+            name: activeCompany?.name || 'GADAP Hub',
+            cnpj: activeCompany?.cnpj || '45.182.903/0001-44',
+            state: activeCompany?.address.state || 'SP',
+            taxRegime: activeCompany?.taxRegime || 'Simples Nacional',
+          },
+          entities: entities.map((e) => ({
+            id: e.id,
+            name: e.name,
+            document: e.document,
+            state: e.address.state,
+            indicadorIE: e.fiscalProfile?.indicadorIE || '1',
+          })),
+          catalog: catalog.map((c) => ({
+            id: c.id,
+            code: c.code,
+            description: c.description,
+            type: c.type,
+            unitPrice: c.unitPrice,
+            ncm: c.ncm,
+            cfop: c.cfop,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.suggestion) {
+        setAiSuggestion(data.suggestion);
+      } else {
+        setAiError(data.error || 'Não foi possível interpretar a solicitação fiscal.');
+      }
+    } catch (err: any) {
+      setAiError(err.message || 'Falha de comunicação com o Copiloto de IA.');
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
+  const handleApplyAiSuggestion = () => {
+    if (!aiSuggestion) return;
+    setDocTypeToIssue(aiSuggestion.docType);
+    setSelectedEntityId(aiSuggestion.selectedEntityId);
+    setSelectedItemId(aiSuggestion.selectedItemId);
+    setQuantity(aiSuggestion.quantity || 1);
+    setIsAiModalOpen(false);
     setIsIssueModalOpen(true);
   };
 
@@ -219,6 +288,17 @@ export default function FiscalModule() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => {
+              setAiSuggestion(null);
+              setAiError(null);
+              setIsAiModalOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer border border-purple-400/30"
+          >
+            <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" />
+            <span>Copiloto Fiscal IA (Gemini)</span>
+          </button>
           <button
             onClick={() => setIsSettingsModalOpen(true)}
             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
@@ -1052,6 +1132,155 @@ export default function FiscalModule() {
                     <>
                       <Send className="w-4 h-4" />
                       <span>Enviar Agora</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Copiloto Fiscal Inteligente (Gemini IA) */}
+      {isAiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-purple-500/30 rounded-2xl w-full max-w-xl p-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500" />
+
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Bot className="w-5 h-5 text-purple-400" />
+                <span>Copiloto Fiscal Inteligente • Google Gemini AI</span>
+              </h3>
+              <button
+                disabled={isAiProcessing}
+                onClick={() => setIsAiModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-3">
+              Descreva em linguagem natural o que deseja faturar. O Gemini analisará o destinatário, o produto/serviço, se a operação é interestadual, o CFOP correto (ex: 5102 vs 6102) e o modelo fiscal (NF-e vs NFS-e).
+            </p>
+
+            <form onSubmit={handleConsultAi} className="space-y-4">
+              <div>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Ex: Emitir venda de 25 paletes PBR para a Carioca Bebidas no Rio de Janeiro"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  disabled={isAiProcessing}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none font-sans"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <span className="text-slate-400">Sugestões rápidas:</span>
+                <button
+                  type="button"
+                  onClick={() => setAiPrompt('Emitir venda de 20 paletes PBR para a Distribuidora Carioca no Rio de Janeiro')}
+                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/20"
+                >
+                  🌴 Venda Interestadual RJ (Paletes)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiPrompt('Emitir nota de 10 paletes de madeira para a Rede Alvorada em SP')}
+                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/20"
+                >
+                  🏢 Venda Interna SP (Alvorada)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiPrompt('Emitir serviço de Licença de Integração Fiscal para o Horizonte Bank')}
+                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/20"
+                >
+                  ⚡ NFS-e Municipal (Serviço)
+                </button>
+              </div>
+
+              {aiError && (
+                <div className="p-3 rounded-xl text-xs font-medium bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{aiError}</span>
+                </div>
+              )}
+
+              {aiSuggestion && (
+                <div className="p-4 bg-purple-950/20 border border-purple-500/40 rounded-xl space-y-3 animate-in fade-in">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      Análise Tributária Realizada pelo Gemini
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {aiSuggestion.confidenceScore}% de Precisão Fiscal
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 bg-slate-800/60 rounded-lg">
+                      <span className="text-slate-400 block text-[10px]">Modelo / Tipo:</span>
+                      <span className="font-bold text-white">{aiSuggestion.docType === 'NFe' ? 'NF-e (Mercadorias - Mod 55)' : 'NFS-e (Serviços)'}</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/60 rounded-lg">
+                      <span className="text-slate-400 block text-[10px]">CFOP Aplicado:</span>
+                      <span className="font-mono font-bold text-indigo-300">{aiSuggestion.suggestedCfop} {aiSuggestion.isInterstate ? '(Interestadual)' : '(Interno)'}</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/60 rounded-lg">
+                      <span className="text-slate-400 block text-[10px]">Destinatário:</span>
+                      <span className="font-semibold text-slate-200 truncate block">{aiSuggestion.selectedEntityName}</span>
+                    </div>
+                    <div className="p-2 bg-slate-800/60 rounded-lg">
+                      <span className="text-slate-400 block text-[10px]">Item & Quantidade:</span>
+                      <span className="font-bold text-emerald-400">{aiSuggestion.quantity}x {aiSuggestion.selectedItemDescription}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-purple-300 block">Diagnóstico Fiscal:</span>
+                    <p>{aiSuggestion.rationale}</p>
+                    <p className="text-amber-300/90 text-[10px] italic">{aiSuggestion.taxNotes}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleApplyAiSuggestion}
+                    className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold text-xs transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Aplicar Parâmetros da IA no Emissor Fiscal</span>
+                  </button>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isAiProcessing}
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+                >
+                  Fechar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAiProcessing || !aiPrompt.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all shadow-lg shadow-purple-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {isAiProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Consultando Gemini AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Analisar com IA</span>
                     </>
                   )}
                 </button>
