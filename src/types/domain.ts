@@ -22,6 +22,7 @@ export interface Company {
     zipCode: string;
   };
   fiscalSettings: {
+    provider?: 'nuvem_fiscal' | 'focus_nfe' | 'mock';
     environment: 'homologacao' | 'producao';
     certificateA1Installed: boolean;
     certificateExpiresAt?: string;
@@ -30,6 +31,11 @@ export interface Company {
     nfseSeries: number;
     nfseCurrentNumber: number;
     defaultCNAE?: string;
+    // Nuvem Fiscal credentials
+    nuvemFiscalClientId?: string;
+    nuvemFiscalClientSecret?: string;
+    // Focus NFe credentials
+    focusNfeToken?: string;
   };
 }
 

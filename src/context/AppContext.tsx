@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Company, UserSession, UserRole, Entity, CatalogItem, FiscalDocument } from '../types/domain';
 import { INITIAL_COMPANIES, INITIAL_ENTITIES, INITIAL_CATALOG, INITIAL_DOCUMENTS } from '../mockData';
-import { fiscalEngine } from '../services/fiscalEngine';
+import { fiscalGateway } from '../services/fiscalEngine';
 
 interface AppContextType {
   // Session & Auth
@@ -219,22 +219,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextNumber = activeCompany.fiscalSettings.nfeCurrentNumber + 1;
     const currentSeries = activeCompany.fiscalSettings.nfeSeries;
 
-    const resp = await fiscalEngine.transmitNFe({
-      companyId: activeCompany.id,
-      series: currentSeries,
-      number: nextNumber,
-      natureOfOperation: 'Venda de mercadoria ou prestação',
-      recipient: {
-        cpfCnpj: entity.document,
-        name: entity.name,
-        stateRegistration: entity.stateRegistration,
-        email: entity.email,
-        address: entity.address,
+    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'nuvem_fiscal');
+    const credentials =
+      activeCompany.fiscalSettings.provider === 'focus_nfe'
+        ? {
+            token: activeCompany.fiscalSettings.focusNfeToken,
+            environment: activeCompany.fiscalSettings.environment,
+          }
+        : {
+            clientId: activeCompany.fiscalSettings.nuvemFiscalClientId,
+            clientSecret: activeCompany.fiscalSettings.nuvemFiscalClientSecret,
+            environment: activeCompany.fiscalSettings.environment,
+          };
+
+    const resp = await provider.transmitNFe(
+      {
+        companyId: activeCompany.id,
+        companyCnpj: activeCompany.cnpj,
+        series: currentSeries,
+        number: nextNumber,
+        natureOfOperation: 'Venda de mercadoria ou prestação',
+        recipient: {
+          cpfCnpj: entity.document,
+          name: entity.name,
+          stateRegistration: entity.stateRegistration,
+          email: entity.email,
+          address: entity.address,
+        },
+        items: enrichedItems,
+        totalAmount,
+        paymentMethod: '01',
       },
-      items: enrichedItems,
-      totalAmount,
-      paymentMethod: '01',
-    });
+      credentials
+    );
 
     updateCompany(activeCompany.id, {
       fiscalSettings: {
@@ -300,24 +317,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextNumber = activeCompany.fiscalSettings.nfseCurrentNumber + 1;
     const currentSeries = activeCompany.fiscalSettings.nfseSeries;
 
-    const resp = await fiscalEngine.transmitNFSe({
-      companyId: activeCompany.id,
-      series: currentSeries,
-      number: nextNumber,
-      serviceDescription: serviceItem?.description || 'Prestação de Serviços Especializados GADAP',
-      lc116Item: serviceItem?.lc116Item || '01.07',
-      issRate: serviceItem?.issRate || 2.0,
-      totalServiceAmount: totalAmount,
-      recipient: {
-        cpfCnpj: entity.document,
-        name: entity.name,
-        email: entity.email,
-        address: {
-          city: entity.address.city,
-          state: entity.address.state,
+    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'nuvem_fiscal');
+    const credentials =
+      activeCompany.fiscalSettings.provider === 'focus_nfe'
+        ? {
+            token: activeCompany.fiscalSettings.focusNfeToken,
+            environment: activeCompany.fiscalSettings.environment,
+          }
+        : {
+            clientId: activeCompany.fiscalSettings.nuvemFiscalClientId,
+            clientSecret: activeCompany.fiscalSettings.nuvemFiscalClientSecret,
+            environment: activeCompany.fiscalSettings.environment,
+          };
+
+    const resp = await provider.transmitNFSe(
+      {
+        companyId: activeCompany.id,
+        companyCnpj: activeCompany.cnpj,
+        series: currentSeries,
+        number: nextNumber,
+        serviceDescription: serviceItem?.description || 'Prestação de Serviços Especializados GADAP',
+        lc116Item: serviceItem?.lc116Item || '01.07',
+        issRate: serviceItem?.issRate || 2.0,
+        totalServiceAmount: totalAmount,
+        recipient: {
+          cpfCnpj: entity.document,
+          name: entity.name,
+          email: entity.email,
+          address: {
+            city: entity.address.city,
+            state: entity.address.state,
+          },
         },
       },
-    });
+      credentials
+    );
 
     updateCompany(activeCompany.id, {
       fiscalSettings: {
@@ -364,7 +398,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cancelFiscalDoc = async (docId: string, justification: string): Promise<boolean> => {
-    await fiscalEngine.cancelDocument(docId, justification);
+    const provider = fiscalGateway.getProvider(activeCompany?.fiscalSettings.provider || 'nuvem_fiscal');
+    await provider.cancelDocument(docId, justification);
     setDocuments((prev) =>
       prev.map((doc) => (doc.id === docId ? { ...doc, status: 'Canceled' as const } : doc))
     );
