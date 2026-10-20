@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { FiscalDocument, FiscalDocStatus, FiscalDocType } from '@/types/domain';
-import { FileCode, Send, Plus, CheckCircle, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu } from 'lucide-react';
+import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2 } from 'lucide-react';
 
 export default function FiscalModule() {
   const {
@@ -30,6 +30,21 @@ export default function FiscalModule() {
   });
   const [cancelJustification, setCancelJustification] = useState('');
   const [previewDoc, setPreviewDoc] = useState<FiscalDocument | null>(null);
+
+  // WhatsApp Evolution Modal State
+  const [whatsAppModal, setWhatsAppModal] = useState<{
+    open: boolean;
+    doc: FiscalDocument | null;
+    phone: string;
+    recipientName: string;
+  }>({
+    open: false,
+    doc: null,
+    phone: '',
+    recipientName: '',
+  });
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [whatsAppFeedback, setWhatsAppFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Settings form
   const [provider, setProvider] = useState<'focus_nfe' | 'fiscal_contora'>(
@@ -101,6 +116,68 @@ export default function FiscalModule() {
       setCancelJustification('');
     } catch (err: any) {
       alert(`Erro ao cancelar documento: ${err.message}`);
+    }
+  };
+
+  const handleOpenWhatsApp = (doc: FiscalDocument) => {
+    const entity = entities.find((e) => e.id === doc.entityId);
+    setWhatsAppModal({
+      open: true,
+      doc,
+      phone: entity?.phone || '',
+      recipientName: doc.entityName,
+    });
+    setWhatsAppFeedback(null);
+  };
+
+  const handleSendWhatsApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!whatsAppModal.doc || !whatsAppModal.phone) return;
+
+    setIsSendingWhatsApp(true);
+    setWhatsAppFeedback(null);
+
+    try {
+      const res = await fetch('/api/whatsapp/send-fiscal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientPhone: whatsAppModal.phone,
+          recipientName: whatsAppModal.recipientName,
+          documentType: whatsAppModal.doc.type === 'NFe' ? 'NF-e' : 'NFS-e',
+          documentNumber: whatsAppModal.doc.number,
+          documentSeries: whatsAppModal.doc.series,
+          companyName: activeCompany?.tradeName || activeCompany?.name || 'GADAP Hub',
+          totalAmount: whatsAppModal.doc.totalAmount,
+          accessKey: whatsAppModal.doc.accessKey,
+          pdfUrl: whatsAppModal.doc.pdfDanfeUrl,
+          xmlUrl: whatsAppModal.doc.xmlUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setWhatsAppFeedback({
+          type: 'success',
+          message: 'Documento fiscal enviado com sucesso via WhatsApp (Evolution API)!',
+        });
+        setTimeout(() => {
+          setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '' });
+          setWhatsAppFeedback(null);
+        }, 2200);
+      } else {
+        setWhatsAppFeedback({
+          type: 'error',
+          message: data.error || 'Erro ao enviar mensagem pelo WhatsApp.',
+        });
+      }
+    } catch (err: any) {
+      setWhatsAppFeedback({
+        type: 'error',
+        message: err.message || 'Falha de comunicação com a Evolution API.',
+      });
+    } finally {
+      setIsSendingWhatsApp(false);
     }
   };
 
@@ -349,13 +426,22 @@ export default function FiscalModule() {
                           )}
 
                           {doc.status === 'Authorized' && (
-                            <button
-                              onClick={() => setJustificationModal({ open: true, docId: doc.id })}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                              title="Cancelar na SEFAZ"
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleOpenWhatsApp(doc)}
+                                className="p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                                title="Enviar NF via WhatsApp (Evolution API)"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setJustificationModal({ open: true, docId: doc.id })}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                title="Cancelar na SEFAZ"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -858,6 +944,119 @@ export default function FiscalModule() {
                 </span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Envio via WhatsApp (Evolution API) */}
+      {whatsAppModal.open && whatsAppModal.doc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-emerald-400" />
+                <span>Enviar NF via WhatsApp</span>
+              </h3>
+              <button
+                disabled={isSendingWhatsApp}
+                onClick={() => setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '' })}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleSendWhatsApp} className="space-y-4">
+              <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Documento:</span>
+                  <span className="font-bold text-white">
+                    {whatsAppModal.doc.type === 'NFe' ? 'NF-e' : 'NFS-e'} Nº {whatsAppModal.doc.number} (Série {whatsAppModal.doc.series})
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Destinatário:</span>
+                  <span className="font-semibold text-slate-200 truncate max-w-[200px]">
+                    {whatsAppModal.recipientName}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Valor Total:</span>
+                  <span className="font-bold font-mono text-emerald-400">
+                    {whatsAppModal.doc.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Anexo DANFE (PDF):</span>
+                  <span className="text-[11px] font-mono text-indigo-300">
+                    {whatsAppModal.doc.pdfDanfeUrl ? 'Disponível (envio como documento)' : 'Link SEFAZ / Focus'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  Número do WhatsApp do Destinatário
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: (11) 99999-9999 ou 5511999999999"
+                  value={whatsAppModal.phone}
+                  onChange={(e) => setWhatsAppModal({ ...whatsAppModal, phone: e.target.value })}
+                  disabled={isSendingWhatsApp}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Pode informar com DDD e máscara ou somente dígitos. Será enviado através da instância <span className="font-mono text-emerald-400 font-semibold">ecostone</span> da Evolution API.
+                </p>
+              </div>
+
+              {whatsAppFeedback && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                    whatsAppFeedback.type === 'success'
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                      : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                  }`}
+                >
+                  {whatsAppFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                  )}
+                  <span>{whatsAppFeedback.message}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isSendingWhatsApp}
+                  onClick={() => setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '' })}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingWhatsApp || !whatsAppModal.phone}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                >
+                  {isSendingWhatsApp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Enviando WhatsApp...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Enviar Agora</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
