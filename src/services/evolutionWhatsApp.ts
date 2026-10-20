@@ -27,7 +27,7 @@ export class EvolutionWhatsAppService {
   }
 
   private get apiKey(): string {
-    return process.env.EVOLUTION_API_KEY || 'Gabriel2006';
+    return process.env.EVOLUTION_API_KEY || 'Gabriel2006!';
   }
 
   /**

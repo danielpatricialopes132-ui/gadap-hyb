@@ -7,12 +7,16 @@ declare global {
   var _pgPool: pg.Pool | undefined;
 }
 
+const rawConnectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://postgres.bpmmxoqodwyukzgvoghc:0LBaeByB0OT5WEE2@aws-0-us-east-2.pooler.supabase.com:5432/postgres';
+
+const cleanConnectionString = rawConnectionString.replace(/(\?|&)sslmode=[^&]+/g, '');
+
 const pool =
   global._pgPool ||
   new Pool({
-    connectionString:
-      process.env.DATABASE_URL ||
-      'postgresql://postgres.bpmmxoqodwyukzgvoghc:0LBaeByB0OT5WEE2@aws-0-us-east-2.pooler.supabase.com:5432/postgres',
+    connectionString: cleanConnectionString,
     ssl: { rejectUnauthorized: false },
     max: 10,
     idleTimeoutMillis: 30000,
