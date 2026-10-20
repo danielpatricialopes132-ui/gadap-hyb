@@ -21,22 +21,23 @@ export default function DashboardOverview({
   return (
     <div className="space-y-6">
       {/* Welcome & Unit Context */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 border border-slate-800">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-400" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl glass-panel relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/10 via-cyan-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-2 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
             Empresa Ativa no Contexto Multi-Tenant
           </div>
-          <h2 className="text-2xl font-black text-white">{activeCompany?.name}</h2>
+          <h2 className="text-2xl font-black text-white tracking-tight">{activeCompany?.name}</h2>
           <p className="text-xs text-slate-400 mt-1">
-            CNPJ: <span className="font-mono text-slate-300">{activeCompany?.cnpj}</span> • IE: <span className="font-mono text-slate-300">{activeCompany?.ie}</span> • Regime: <span className="text-indigo-400 font-semibold">{activeCompany?.taxRegime}</span>
+            CNPJ: <span className="font-mono text-slate-200">{activeCompany?.cnpj}</span> • IE: <span className="font-mono text-slate-200">{activeCompany?.ie}</span> • Regime: <span className="text-indigo-400 font-semibold">{activeCompany?.taxRegime}</span>
           </p>
         </div>
 
-        <div className="flex gap-2.5">
+        <div className="flex gap-2.5 relative z-10">
           <button
             onClick={() => onNavigate('fiscal')}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all cursor-pointer"
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>Emitir Documento</span>
             <ArrowUpRight className="w-4 h-4" />
@@ -47,56 +48,59 @@ export default function DashboardOverview({
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Faturado */}
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 relative overflow-hidden">
+        <div className="p-5 rounded-2xl glass-panel glass-panel-hover relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Volume Faturado</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-emerald-400 font-mono mt-3">
+          <div className="text-2xl font-black text-emerald-400 font-mono mt-3 tracking-tight">
             {totalIssued.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </div>
-          <div className="text-[11px] text-slate-500 mt-1">Total de documentos autorizados SEFAZ</div>
+          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Total de documentos autorizados SEFAZ
+          </div>
         </div>
 
         {/* NF-e Emitidas */}
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+        <div className="p-5 rounded-2xl glass-panel glass-panel-hover relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">NF-e (Mercadorias)</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/20 transition-colors">
               <FileText className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white font-mono mt-3">{nfeCount}</div>
+          <div className="text-2xl font-black text-white font-mono mt-3 tracking-tight">{nfeCount}</div>
           <div className="text-[11px] text-slate-500 mt-1">
             Série {activeCompany?.fiscalSettings.nfeSeries} • Próx: #{ (activeCompany?.fiscalSettings.nfeCurrentNumber || 0) + 1 }
           </div>
         </div>
 
         {/* NFS-e Emitidas */}
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+        <div className="p-5 rounded-2xl glass-panel glass-panel-hover relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">NFS-e (Serviços)</span>
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500/20 transition-colors">
               <FileText className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white font-mono mt-3">{nfseCount}</div>
+          <div className="text-2xl font-black text-white font-mono mt-3 tracking-tight">{nfseCount}</div>
           <div className="text-[11px] text-slate-500 mt-1">
             Série {activeCompany?.fiscalSettings.nfseSeries} • Próx: #{ (activeCompany?.fiscalSettings.nfseCurrentNumber || 0) + 1 }
           </div>
         </div>
 
         {/* Entidades Isoladas */}
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+        <div className="p-5 rounded-2xl glass-panel glass-panel-hover relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Entidades Ativas</span>
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 group-hover:bg-sky-500/20 transition-colors">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white font-mono mt-3">{entities.length}</div>
+          <div className="text-2xl font-black text-white font-mono mt-3 tracking-tight">{entities.length}</div>
           <div className="text-[11px] text-slate-500 mt-1">Clientes e Fornecedores cadastrados</div>
         </div>
       </div>
