@@ -171,6 +171,7 @@ export default function CatalogManager() {
               <tr className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
                 <th className="py-3 px-4">Código & Descrição</th>
                 <th className="py-3 px-4">Tipo & Unidade</th>
+                <th className="py-3 px-4">Estoque Atual</th>
                 <th className="py-3 px-4">Preço Unitário</th>
                 <th className="py-3 px-4">Atributos Fiscais</th>
                 <th className="py-3 px-4">Status</th>
@@ -180,7 +181,7 @@ export default function CatalogManager() {
             <tbody className="divide-y divide-slate-800/60">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-slate-400">
                     Nenhum item cadastrado no catálogo desta unidade.
                   </td>
                 </tr>
@@ -213,6 +214,31 @@ export default function CatalogManager() {
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                         Unidade: <strong className="text-slate-300">{item.unit}</strong>
                       </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {item.type === 'product' ? (
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`font-mono font-bold text-sm ${
+                              (item.stockBalance ?? 0) <= (item.minStock ?? 10)
+                                ? 'text-amber-400'
+                                : 'text-slate-100'
+                            }`}>
+                              {item.stockBalance ?? 0} {item.unit}
+                            </span>
+                            {(item.stockBalance ?? 0) <= (item.minStock ?? 10) && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                Baixo
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            Mín: {item.minStock ?? 10} {item.unit}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 text-[11px] italic">Inesgotável</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-emerald-400 font-mono text-sm">

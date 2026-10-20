@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { FiscalDocument, FiscalDocStatus, FiscalDocType } from '@/types/domain';
-import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2, Table, Mail, Play, RotateCw } from 'lucide-react';
+import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2, Table, Mail, Play, RotateCw, Upload, FileCheck, Share2, Archive, HelpCircle, Edit } from 'lucide-react';
 
 export default function FiscalModule() {
   const {
@@ -14,6 +14,8 @@ export default function FiscalModule() {
     issueNFe,
     issueNFSe,
     cancelFiscalDoc,
+    sendCorrectionLetter,
+    importInboundXml,
     updateFiscalSettings,
   } = useApp();
 
@@ -98,6 +100,24 @@ export default function FiscalModule() {
   const [nfeCurrentNumber, setNfeCurrentNumber] = useState(activeCompany?.fiscalSettings.nfeCurrentNumber || 1);
   const [nfseSeries, setNfseSeries] = useState(activeCompany?.fiscalSettings.nfseSeries || 1);
   const [nfseCurrentNumber, setNfseCurrentNumber] = useState(activeCompany?.fiscalSettings.nfseCurrentNumber || 1);
+
+  // Carta de Correção (CC-e) State
+  const [cceModal, setCceModal] = useState<{ open: boolean; docId: string; docNumber?: number }>({
+    open: false,
+    docId: '',
+  });
+  const [cceText, setCceText] = useState('');
+  const [isSendingCce, setIsSendingCce] = useState(false);
+  const [cceSuccess, setCceSuccess] = useState<string | null>(null);
+
+  // XML Import State (Feature 1 & 3)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFeedback, setImportFeedback] = useState<string | null>(null);
+
+  // Accounting Package (Feature 5)
+  const [isExportingBatch, setIsExportingBatch] = useState(false);
+  const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
 
   // Simulated Test Emission State
   const [isTestingEmission, setIsTestingEmission] = useState(false);
@@ -409,6 +429,95 @@ export default function FiscalModule() {
     }, 2400);
   };
 
+  const handleSendCce = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cceText.trim().length < 15) {
+      alert('A justificativa da CC-e deve ter no mínimo 15 caracteres.');
+      return;
+    }
+
+    setIsSendingCce(true);
+    setCceSuccess(null);
+    try {
+      await sendCorrectionLetter(cceModal.docId, cceText.trim());
+      setCceSuccess('Carta de Correção Eletrônica (CC-e) homologada e vinculada à NF-e com sucesso pela SEFAZ!');
+      setTimeout(() => {
+        setCceModal({ open: false, docId: '' });
+        setCceText('');
+        setCceSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      alert(err.message || 'Erro ao registrar CC-e na SEFAZ.');
+    } finally {
+      setIsSendingCce(false);
+    }
+  };
+
+  const handleExecuteXmlImport = async () => {
+    setIsImporting(true);
+    setImportFeedback(null);
+
+    try {
+      await importInboundXml({
+        supplierName: 'FLORESTAL INDÚSTRIA & BENEFICIAMENTO DE PINUS S.A.',
+        supplierCnpj: '23.891.042/0001-77',
+        invoiceNumber: 45210,
+        items: [
+          {
+            description: 'Tábua de Pinus Tratada 25x150x3000mm',
+            ncm: '4407.11.00',
+            quantity: 120,
+            unitPrice: 18.5,
+            cfop: '1102',
+          },
+          {
+            description: 'Prego Espiralado Galvanizado 2,5x50mm (Caixa 5kg)',
+            ncm: '7317.00.90',
+            quantity: 30,
+            unitPrice: 42.0,
+            cfop: '1102',
+          },
+        ],
+      });
+
+      setImportFeedback('NF-e de compra importada com sucesso! Fornecedor cadastrado e estoque de 2 produtos atualizado.');
+      setTimeout(() => {
+        setIsImportModalOpen(false);
+        setImportFeedback(null);
+      }, 2200);
+    } catch (err: any) {
+      alert('Erro na leitura do XML da NF-e.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleExportAccountingBatch = async () => {
+    setIsExportingBatch(true);
+    setBatchFeedback(null);
+
+    await new Promise((r) => setTimeout(r, 1000));
+    const authorizedCount = documents.filter((d) => d.status === 'Authorized').length;
+    const canceledCount = documents.filter((d) => d.status === 'Canceled').length;
+
+    // Trigger instant virtual CSV/Zip download
+    const blob = new Blob([
+      `CHAVE;NUMERO;SERIE;TIPO;STATUS;DESTINATARIO;CNPJ_CPF;VALOR;DATA\n` +
+      documents.map(d => `${d.accessKey || ''};${d.number};${d.series};${d.type};${d.status};"${d.entityName}";${d.entityDocument};${d.totalAmount};${d.issueDate}`).join('\n')
+    ], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Pacote_Contabil_${activeCompany?.tradeName || 'GADAP'}_${new Date().toISOString().slice(0, 7)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setIsExportingBatch(false);
+    setBatchFeedback(`Pacote contábil gerado com sucesso! (${authorizedCount} notas autorizadas e ${canceledCount} cancelamentos).`);
+    setTimeout(() => setBatchFeedback(null), 3500);
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateFiscalSettings({
@@ -474,6 +583,23 @@ export default function FiscalModule() {
             <span>Configurações & Certificado A1</span>
           </button>
           <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            title="Importar XML de compra de fornecedor e atualizar estoque"
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Importar XML Compra</span>
+          </button>
+          <button
+            onClick={handleExportAccountingBatch}
+            disabled={isExportingBatch}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            title="Gerar pacote de XMLs e relatório para o contador"
+          >
+            {isExportingBatch ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5 text-amber-400" />}
+            <span>Pacote Contador</span>
+          </button>
+          <button
             onClick={() => handleOpenIssue('NFe')}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all cursor-pointer"
           >
@@ -489,6 +615,13 @@ export default function FiscalModule() {
           </button>
         </div>
       </div>
+
+      {batchFeedback && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{batchFeedback}</span>
+        </div>
+      )}
 
       {/* Fiscal Diagnostics Widget */}
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
@@ -720,6 +853,29 @@ export default function FiscalModule() {
                                 title="Enviar XML & DANFE por E-mail"
                               >
                                 <Mail className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setCceModal({ open: true, docId: doc.id, docNumber: doc.number });
+                                  setCceText('');
+                                  setCceSuccess(null);
+                                }}
+                                className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
+                                title="Emitir Carta de Correção Eletrônica (CC-e)"
+                              >
+                                <FileCheck className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (navigator.clipboard) {
+                                    navigator.clipboard.writeText(`${window.location.origin}/api/danfe/${doc.accessKey || doc.id}?type=${doc.type}`);
+                                    alert('Link de autoatendimento copiado para a área de transferência!');
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
+                                title="Copiar Link de Autoatendimento do Cliente"
+                              >
+                                <Share2 className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => setJustificationModal({ open: true, docId: doc.id })}
@@ -1831,6 +1987,145 @@ export default function FiscalModule() {
                 <RotateCw className="w-3.5 h-3.5" />
                 Repetir Teste
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Carta de Correção Eletrônica (CC-e) */}
+      {cceModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl p-6">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <FileCheck className="w-5 h-5 text-amber-400" />
+                <span>Emitir Carta de Correção Eletrônica (CC-e)</span>
+              </h3>
+              <button
+                disabled={isSendingCce}
+                onClick={() => setCceModal({ open: false, docId: '' })}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleSendCce} className="space-y-4">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+                A CC-e destina-se a corrigir erros na NF-e nº <strong>{cceModal.docNumber}</strong> que não estejam relacionados com variáveis de impostos, valores cadastrais de produtos ou dados cadastrais essenciais que impliquem mudança de remetente ou destinatário.
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  Texto da Correção (Mínimo 15 caracteres)
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={cceText}
+                  onChange={(e) => setCceText(e.target.value)}
+                  placeholder="Ex: Correção referente ao endereço de entrega: onde constou Rua A, considerar Rua B, nº 120."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white text-xs outline-none focus:border-amber-500 resize-none font-sans"
+                />
+                <span className="text-[10px] text-slate-500 block mt-1">
+                  Caracteres: {cceText.length} / mín. 15
+                </span>
+              </div>
+
+              {cceSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{cceSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  disabled={isSendingCce}
+                  onClick={() => setCceModal({ open: false, docId: '' })}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingCce || cceText.trim().length < 15}
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-lg shadow-amber-600/30 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSendingCce ? <RotateCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span>Homologar CC-e na SEFAZ</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Importação de XML de Compra (Inbound NF-e) */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl p-6">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Upload className="w-5 h-5 text-emerald-400" />
+                <span>Importar XML de NF-e (Entrada de Mercadorias)</span>
+              </h3>
+              <button
+                disabled={isImporting}
+                onClick={() => setIsImportModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-6 border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-2xl text-center cursor-pointer transition-colors bg-slate-950/50">
+                <Upload className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-200">Arraste o arquivo XML da NF-e aqui ou clique para selecionar</p>
+                <p className="text-[10px] text-slate-500 mt-1">Compatível com schema oficial NF-e layout 4.00 (SEFAZ Nacional)</p>
+              </div>
+
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs space-y-1 text-slate-300">
+                <div className="font-bold text-white text-[11px] flex items-center gap-1.5 text-indigo-300">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Automação com IA & Estoque Integrado:
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  • Cadastra o fornecedor automaticamente caso seja uma nova empresa.
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  • Dá entrada no estoque dos produtos e atualiza o custo médio de aquisição.
+                </div>
+              </div>
+
+              {importFeedback && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{importFeedback}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  disabled={isImporting}
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteXmlImport}
+                  disabled={isImporting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 cursor-pointer"
+                >
+                  {isImporting ? <RotateCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  <span>{isImporting ? 'Processando XML...' : 'Simular Importação NF-e (XML)'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

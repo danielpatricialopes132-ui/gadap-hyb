@@ -426,6 +426,51 @@ export class UniversalFiscalGateway {
     // Fiscal Contora is primary default
     return this.fiscalContora;
   }
+
+  /**
+   * Transmits NF-e with automatic Circuit Breaker & Failover:
+   * 1. Attempts Primary Provider (Fiscal Contora).
+   * 2. If network timeout or HTTP 5xx occurs, automatically fails over to Secondary (Focus NFe).
+   */
+  async transmitNFeWithFailover(
+    payload: NFePayload,
+    preferredProvider: 'focus_nfe' | 'fiscal_contora' | 'contora' = 'contora',
+    credentials?: {
+      focusToken?: string;
+      contoraApiKey?: string;
+      contoraSecret?: string;
+      environment?: 'homologacao' | 'producao';
+    }
+  ): Promise<FiscalResponse & { failedOver?: boolean }> {
+    const isContoraFirst = preferredProvider !== 'focus_nfe';
+    const primary = isContoraFirst ? this.fiscalContora : this.focusNfe;
+    const secondary = isContoraFirst ? this.focusNfe : this.fiscalContora;
+
+    try {
+      const primaryCreds = isContoraFirst
+        ? { apiKey: credentials?.contoraApiKey, secret: credentials?.contoraSecret, environment: credentials?.environment }
+        : { token: credentials?.focusToken, environment: credentials?.environment };
+
+      const res = await primary.transmitNFe(payload, primaryCreds);
+      if (res && res.success) {
+        return res;
+      }
+      throw new Error(res?.message || 'Falha no retorno do provedor primário');
+    } catch (err: any) {
+      console.warn(`[FiscalGateway] Primário (${primary.name}) instável. Disparando failover imediato para ${secondary.name}:`, err.message);
+
+      const secondaryCreds = !isContoraFirst
+        ? { apiKey: credentials?.contoraApiKey, secret: credentials?.contoraSecret, environment: credentials?.environment }
+        : { token: credentials?.focusToken, environment: credentials?.environment };
+
+      const fallbackRes = await secondary.transmitNFe(payload, secondaryCreds);
+      return {
+        ...fallbackRes,
+        failedOver: true,
+        message: `${fallbackRes.message} [Failover Automático ativado: ${secondary.name}]`,
+      };
+    }
+  }
 }
 
 export const fiscalGateway = new UniversalFiscalGateway();

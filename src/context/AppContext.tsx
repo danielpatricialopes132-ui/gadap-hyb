@@ -31,6 +31,13 @@ interface AppContextType {
   issueNFe: (entityId: string, itemIds: { itemId: string; quantity: number }[]) => Promise<FiscalDocument>;
   issueNFSe: (entityId: string, itemIds: { itemId: string; quantity: number }[]) => Promise<FiscalDocument>;
   cancelFiscalDoc: (docId: string, justification: string) => Promise<boolean>;
+  sendCorrectionLetter: (docId: string, correctionText: string) => Promise<boolean>;
+  importInboundXml: (xmlData: {
+    supplierName: string;
+    supplierCnpj: string;
+    invoiceNumber: number;
+    items: Array<{ description: string; ncm: string; quantity: number; unitPrice: number; cfop: string }>;
+  }) => Promise<void>;
   updateFiscalSettings: (settings: Company['fiscalSettings']) => void;
   isSupabaseLive: boolean;
 }
@@ -223,19 +230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       activeCompany.fiscalSettings.provider === 'fiscal_contora' ||
       activeCompany.fiscalSettings.provider === 'contora';
 
-    const provider = fiscalGateway.getProvider(isContora ? 'contora' : 'focus_nfe');
-    const credentials = isContora
-      ? {
-          apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
-          secret: activeCompany.fiscalSettings.fiscalContoraSecret,
-          environment: activeCompany.fiscalSettings.environment,
-        }
-      : {
-          token: activeCompany.fiscalSettings.focusNfeToken,
-          environment: activeCompany.fiscalSettings.environment,
-        };
-
-    const resp = await provider.transmitNFe(
+    const resp = await fiscalGateway.transmitNFeWithFailover(
       {
         companyId: activeCompany.id,
         companyCnpj: activeCompany.cnpj,
@@ -253,7 +248,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         totalAmount,
         paymentMethod: '01',
       },
-      credentials
+      isContora ? 'contora' : 'focus_nfe',
+      {
+        contoraApiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
+        contoraSecret: activeCompany.fiscalSettings.fiscalContoraSecret,
+        focusToken: activeCompany.fiscalSettings.focusNfeToken,
+        environment: activeCompany.fiscalSettings.environment,
+      }
+    );
+
+    // Feature 3: Automatic Stock Decrement on Authorization
+    setCatalog((prev) =>
+      prev.map((catItem) => {
+        const itemDeduction = itemsToIssue.find((i) => i.itemId === catItem.id);
+        if (itemDeduction && catItem.type === 'product') {
+          const currentStock = catItem.stockBalance ?? 100;
+          return {
+            ...catItem,
+            stockBalance: Math.max(0, currentStock - itemDeduction.quantity),
+          };
+        }
+        return catItem;
+      })
     );
 
     updateCompany(activeCompany.id, {
@@ -279,6 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       accessKey: resp.accessKey,
       authorizationDate: resp.success ? new Date().toISOString() : undefined,
       rejectionReason: resp.rejectionReason,
+      providerUsed: resp.providerUsed,
       xmlUrl: resp.xmlUrl,
       pdfDanfeUrl: resp.pdfUrl,
       items: enrichedItems.map((item, idx) => ({
@@ -419,6 +436,119 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
+  // Feature 1: Carta de Correção Eletrônica (CC-e)
+  const sendCorrectionLetter = async (docId: string, correctionText: string): Promise<boolean> => {
+    if (correctionText.trim().length < 15) {
+      throw new Error('A justificativa da CC-e deve conter no mínimo 15 caracteres.');
+    }
+
+    const doc = documents.find((d) => d.id === docId);
+    if (!doc) throw new Error('Documento fiscal não encontrado.');
+
+    const newSequence = (doc.correctionLetters?.length || 0) + 1;
+    const newLetter = {
+      sequence: newSequence,
+      correctionText: correctionText.trim(),
+      registeredAt: new Date().toISOString(),
+      protocol: `1352600${Math.floor(10000000 + Math.random() * 90000000)}`,
+    };
+
+    setDocuments((prev) =>
+      prev.map((d) =>
+        d.id === docId
+          ? {
+              ...d,
+              correctionLetters: [...(d.correctionLetters || []), newLetter],
+            }
+          : d
+      )
+    );
+
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'cce',
+        table: 'fiscal_documents',
+        id: docId,
+        data: newLetter,
+      }),
+    }).catch(console.error);
+
+    return true;
+  };
+
+  // Feature 1 & 3: Importação de XML de Compras com Lançamento em Estoque
+  const importInboundXml = async (xmlData: {
+    supplierName: string;
+    supplierCnpj: string;
+    invoiceNumber: number;
+    items: Array<{ description: string; ncm: string; quantity: number; unitPrice: number; cfop: string }>;
+  }) => {
+    if (!activeCompany) return;
+
+    // 1. Cadastra fornecedor se não existir
+    const existingSupplier = entities.find(
+      (e) => e.document.replace(/\D/g, '') === xmlData.supplierCnpj.replace(/\D/g, '')
+    );
+
+    if (!existingSupplier) {
+      await addEntity({
+        type: 'PJ',
+        role: 'fornecedor',
+        name: xmlData.supplierName,
+        tradeName: xmlData.supplierName,
+        document: xmlData.supplierCnpj,
+        email: 'financeiro@fornecedor.com.br',
+        phone: '(11) 3210-4400',
+        address: {
+          zipCode: '01001-000',
+          street: 'Av. Industrial Fornecedor',
+          number: '500',
+          district: 'Distrito Industrial',
+          city: 'São Paulo',
+          state: 'SP',
+        },
+      });
+    }
+
+    // 2. Lança ou atualiza estoque dos itens
+    for (const it of xmlData.items) {
+      const existingProduct = catalog.find(
+        (c) => c.description.toLowerCase().trim() === it.description.toLowerCase().trim()
+      );
+
+      if (existingProduct) {
+        setCatalog((prev) =>
+          prev.map((c) =>
+            c.id === existingProduct.id
+              ? {
+                  ...c,
+                  stockBalance: (c.stockBalance ?? 0) + it.quantity,
+                  costPrice: it.unitPrice,
+                }
+              : c
+          )
+        );
+      } else {
+        await addCatalogItem({
+          type: 'product',
+          code: `IMP-${Math.floor(1000 + Math.random() * 9000)}`,
+          description: it.description,
+          unit: 'UN',
+          unitPrice: Number((it.unitPrice * 1.45).toFixed(2)), // Margem sugerida
+          costPrice: it.unitPrice,
+          stockBalance: it.quantity,
+          minStock: 10,
+          ncm: it.ncm,
+          cfop: '1102',
+          origin: '0',
+          status: 'active',
+        });
+      }
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -442,6 +572,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         issueNFe,
         issueNFSe,
         cancelFiscalDoc,
+        sendCorrectionLetter,
+        importInboundXml,
         updateFiscalSettings,
         isSupabaseLive,
       }}

@@ -95,6 +95,8 @@ export interface CatalogItem {
   cest?: string;
   cfop?: string;
   origin?: '0' | '1' | '2'; // 0: Nacional, 1: Estrangeira direta, 2: Estrangeira adquirida internamente
+  stockBalance?: number;
+  minStock?: number;
   // Service specific fiscal
   lc116Item?: string; // ex: 01.07 Suporte técnico
   issRate?: number; // % ISS
@@ -103,8 +105,15 @@ export interface CatalogItem {
   createdAt: string;
 }
 
-export type FiscalDocType = 'NFe' | 'NFSe';
+export type FiscalDocType = 'NFe' | 'NFSe' | 'MDFe';
 export type FiscalDocStatus = 'Draft' | 'Transmitting' | 'Authorized' | 'Rejected' | 'Canceled';
+
+export interface CorrectionLetter {
+  sequence: number;
+  correctionText: string;
+  registeredAt: string;
+  protocol: string;
+}
 
 export interface FiscalDocument {
   id: string;
@@ -122,6 +131,7 @@ export interface FiscalDocument {
   accessKey?: string;
   authorizationDate?: string;
   rejectionReason?: string;
+  providerUsed?: string;
   items: Array<{
     itemId: string;
     description: string;
@@ -133,4 +143,5 @@ export interface FiscalDocument {
   }>;
   xmlUrl?: string;
   pdfDanfeUrl?: string;
+  correctionLetters?: CorrectionLetter[];
 }
