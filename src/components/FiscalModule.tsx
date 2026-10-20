@@ -46,11 +46,15 @@ export default function FiscalModule() {
     doc: FiscalDocument | null;
     phone: string;
     recipientName: string;
+    messageType: 'fiscal_doc' | 'delivery_dispatched' | 'delivery_delivered' | 'payment_reminder';
+    dueDate: string;
   }>({
     open: false,
     doc: null,
     phone: '',
     recipientName: '',
+    messageType: 'fiscal_doc',
+    dueDate: '',
   });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [whatsAppFeedback, setWhatsAppFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -336,11 +340,18 @@ export default function FiscalModule() {
 
   const handleOpenWhatsApp = (doc: FiscalDocument) => {
     const entity = entities.find((e) => e.id === doc.entityId);
+    // calculate a default due date 28 days from issue
+    const issueDateObj = new Date(doc.issueDate);
+    issueDateObj.setDate(issueDateObj.getDate() + 28);
+    const defaultDueDate = issueDateObj.toLocaleDateString('pt-BR');
+
     setWhatsAppModal({
       open: true,
       doc,
       phone: entity?.phone || '',
       recipientName: doc.entityName,
+      messageType: 'fiscal_doc',
+      dueDate: defaultDueDate,
     });
     setWhatsAppFeedback(null);
   };
@@ -367,17 +378,26 @@ export default function FiscalModule() {
           accessKey: whatsAppModal.doc.accessKey,
           pdfUrl: whatsAppModal.doc.pdfDanfeUrl,
           xmlUrl: whatsAppModal.doc.xmlUrl,
+          messageType: whatsAppModal.messageType,
+          dueDate: whatsAppModal.dueDate,
+          pixQrCode: `00020126580014br.gov.bcb.pix0136${activeCompany?.cnpj?.replace(/\D/g, '')}520400005303986540${whatsAppModal.doc.totalAmount.toFixed(2)}5802BR5913${activeCompany?.tradeName || 'GADAP'}6009SAO PAULO62070503***6304`,
         }),
       });
 
       const data = await res.json();
       if (data.success) {
+        const typeLabels: Record<string, string> = {
+          fiscal_doc: 'Comprovante com DANFE/XML',
+          delivery_dispatched: 'Aviso de Despacho e Rota',
+          delivery_delivered: 'Confirmação de Entrega',
+          payment_reminder: 'Lembrete de Cobrança com Pix',
+        };
         setWhatsAppFeedback({
           type: 'success',
-          message: 'Documento fiscal enviado com sucesso via WhatsApp (Evolution API)!',
+          message: `${typeLabels[whatsAppModal.messageType] || 'Notificação'} enviada com sucesso via WhatsApp!`,
         });
         setTimeout(() => {
-          setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '' });
+          setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '', messageType: 'fiscal_doc', dueDate: '' });
           setWhatsAppFeedback(null);
         }, 2200);
       } else {
@@ -1491,7 +1511,7 @@ export default function FiscalModule() {
               </h3>
               <button
                 disabled={isSendingWhatsApp}
-                onClick={() => setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '' })}
+                onClick={() => setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '', messageType: 'fiscal_doc', dueDate: '' })}
                 className="text-slate-400 hover:text-white text-sm"
               >
                 ✕ Fechar
@@ -1525,6 +1545,89 @@ export default function FiscalModule() {
                   </span>
                 </div>
               </div>
+
+              {/* Tipo de Notificação WhatsApp */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">
+                  Tipo de Notificação
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppModal({ ...whatsAppModal, messageType: 'fiscal_doc' })}
+                    className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                      whatsAppModal.messageType === 'fiscal_doc'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>📄 Comprovante Fiscal</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Envia DANFE PDF e XML</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppModal({ ...whatsAppModal, messageType: 'delivery_dispatched' })}
+                    className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                      whatsAppModal.messageType === 'delivery_dispatched'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>🚚 Carga em Trânsito</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Aviso de despacho e rota</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppModal({ ...whatsAppModal, messageType: 'delivery_delivered' })}
+                    className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                      whatsAppModal.messageType === 'delivery_delivered'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>✅ Entrega Realizada</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Confirmação de recebimento</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppModal({ ...whatsAppModal, messageType: 'payment_reminder' })}
+                    className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                      whatsAppModal.messageType === 'payment_reminder'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-white'
+                        : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>⏰ Cobrança & Pix</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Vencimento + Pix Copia/Cola</div>
+                  </button>
+                </div>
+              </div>
+
+              {whatsAppModal.messageType === 'payment_reminder' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Data de Vencimento da Fatura
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 25/11/2026"
+                    value={whatsAppModal.dueDate}
+                    onChange={(e) => setWhatsAppModal({ ...whatsAppModal, dueDate: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
@@ -1565,7 +1668,7 @@ export default function FiscalModule() {
                 <button
                   type="button"
                   disabled={isSendingWhatsApp}
-                  onClick={() => setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '' })}
+                  onClick={() => setWhatsAppModal({ open: false, doc: null, phone: '', recipientName: '', messageType: 'fiscal_doc', dueDate: '' })}
                   className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
                 >
                   Cancelar

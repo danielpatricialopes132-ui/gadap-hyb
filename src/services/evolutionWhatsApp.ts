@@ -9,6 +9,9 @@ export interface WhatsAppMessagePayload {
   accessKey?: string;
   pdfUrl?: string;
   xmlUrl?: string;
+  messageType?: 'fiscal_doc' | 'delivery_dispatched' | 'delivery_delivered' | 'payment_reminder';
+  dueDate?: string;
+  pixQrCode?: string;
 }
 
 export interface WhatsAppSendResult {
@@ -59,15 +62,31 @@ export class EvolutionWhatsAppService {
       currency: 'BRL',
     });
 
+    let headerTitle = `📄 *Comprovante Fiscal Eletrônico - ${payload.companyName}*`;
+    let bodyContext = `Seu documento fiscal foi emitido e autorizado com sucesso na SEFAZ:`;
+
+    if (payload.messageType === 'delivery_dispatched') {
+      headerTitle = `🚚 *Pedido Faturado e a Caminho! - ${payload.companyName}*`;
+      bodyContext = `Seu pedido já foi separado, a NF-e foi autorizada e a carga saiu para entrega:`;
+    } else if (payload.messageType === 'delivery_delivered') {
+      headerTitle = `✅ *Mercadoria Entregue com Sucesso! - ${payload.companyName}*`;
+      bodyContext = `Confirmamos a entrega dos produtos referentes à sua nota fiscal:`;
+    } else if (payload.messageType === 'payment_reminder') {
+      headerTitle = `⏰ *Lembrete de Vencimento de Fatura - ${payload.companyName}*`;
+      bodyContext = `Lembramos que o título financeiro referente à nota fiscal vence ${payload.dueDate ? `em *${payload.dueDate}*` : 'em breve'}:`;
+    }
+
     const caption = [
-      `📄 *Comprovante Fiscal Eletrônico - ${payload.companyName}*`,
+      headerTitle,
       ``,
       `Olá, *${payload.recipientName}*!`,
-      `Seu documento fiscal foi emitido e autorizado com sucesso na SEFAZ:`,
+      bodyContext,
       ``,
       `🔹 *Modelo:* ${payload.documentType} (Série ${payload.documentSeries})`,
       `🔹 *Número:* #${payload.documentNumber}`,
-      `🔹 *Valor Total:* ${valorFormatado}`,
+      `🔹 *Valor:* ${valorFormatado}`,
+      payload.dueDate ? `📅 *Vencimento:* ${payload.dueDate}` : null,
+      payload.pixQrCode ? `📱 *Pix Copia e Cola:* \`${payload.pixQrCode}\`` : null,
       payload.accessKey ? `🔑 *Chave de Acesso:* \`${payload.accessKey}\`` : null,
       ``,
       payload.pdfUrl ? `📥 Baixar DANFE (PDF): ${payload.pdfUrl}` : null,
