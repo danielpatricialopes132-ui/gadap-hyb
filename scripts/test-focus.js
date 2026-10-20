@@ -2,12 +2,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const token = process.env.FOCUS_NFE_TOKEN;
+const env = process.env.FOCUS_NFE_ENVIRONMENT || 'homologacao';
 
 async function testFocusNFe() {
-  console.log('Testing Focus NFe token:', token ? `${token.slice(0, 6)}...` : 'MISSING');
+  console.log(`Testing Focus NFe token in [${env.toUpperCase()}]:`, token ? `${token.slice(0, 6)}...` : 'MISSING');
   
-  // Endpoint de empresas cadastradas no ambiente de produção
-  const url = 'https://api.focusnfe.com.br/v2/empresas';
+  const baseUrl = env === 'producao' ? 'https://api.focusnfe.com.br/v2' : 'https://homologacao.focusnfe.com.br/v2';
+  const url = `${baseUrl}/empresas`;
   
   try {
     const res = await fetch(url, {

@@ -98,8 +98,8 @@ export class FocusNFeProvider implements FiscalProvider {
 
   private getBaseUrl(env: 'homologacao' | 'producao' = 'homologacao') {
     return env === 'producao'
-      ? 'https://api.focusnfe.com.br/v2'
-      : 'https://homologacao.focusnfe.com.br/v2';
+      ? 'https://api.focusnfe.com.br'
+      : 'https://homologacao.focusnfe.com.br';
   }
 
   async transmitNFe(payload: NFePayload, credentials?: Record<string, any>): Promise<FiscalResponse> {
@@ -110,7 +110,8 @@ export class FocusNFeProvider implements FiscalProvider {
       try {
         const baseUrl = this.getBaseUrl(environment);
         const ref = `NFE-${payload.series}-${payload.number}-${Date.now().toString().slice(-4)}`;
-        const focusRes = await fetch(`${baseUrl}/nfe2?ref=${ref}`, {
+        // Focus NFe official route: /v2/nfe?ref={referencia}
+        const focusRes = await fetch(`${baseUrl}/v2/nfe?ref=${ref}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -180,7 +181,7 @@ export class FocusNFeProvider implements FiscalProvider {
       try {
         const baseUrl = this.getBaseUrl(environment);
         const ref = `NFSE-${payload.number}-${Date.now().toString().slice(-4)}`;
-        const focusRes = await fetch(`${baseUrl}/nfse?ref=${ref}`, {
+        const focusRes = await fetch(`${baseUrl}/v2/nfse?ref=${ref}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
