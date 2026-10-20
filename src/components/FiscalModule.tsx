@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { FiscalDocument, FiscalDocStatus, FiscalDocType } from '@/types/domain';
-import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot } from 'lucide-react';
+import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2 } from 'lucide-react';
 
 export default function FiscalModule() {
   const {
@@ -21,8 +21,15 @@ export default function FiscalModule() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [docTypeToIssue, setDocTypeToIssue] = useState<FiscalDocType>('NFe');
   const [selectedEntityId, setSelectedEntityId] = useState('');
-  const [selectedItemId, setSelectedItemId] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  
+  // Multi-item invoice state
+  interface InvoiceLineItem {
+    id: string;
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+  }
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceLineItem[]>([]);
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [justificationModal, setJustificationModal] = useState<{ open: boolean; docId: string }>({
     open: false,
@@ -85,9 +92,54 @@ export default function FiscalModule() {
     setDocTypeToIssue(type);
     setSelectedEntityId(entities[0]?.id || '');
     const firstMatchingItem = catalog.find((c) => (type === 'NFe' ? c.type === 'product' : c.type === 'service'));
-    setSelectedItemId(firstMatchingItem?.id || '');
-    setQuantity(1);
+    if (firstMatchingItem) {
+      setInvoiceItems([
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          itemId: firstMatchingItem.id,
+          quantity: 1,
+          unitPrice: firstMatchingItem.unitPrice,
+        },
+      ]);
+    } else {
+      setInvoiceItems([]);
+    }
     setIsIssueModalOpen(true);
+  };
+
+  const handleAddItemLine = () => {
+    const firstMatchingItem = catalog.find((c) => (docTypeToIssue === 'NFe' ? c.type === 'product' : c.type === 'service'));
+    if (!firstMatchingItem) return;
+    setInvoiceItems((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        itemId: firstMatchingItem.id,
+        quantity: 1,
+        unitPrice: firstMatchingItem.unitPrice,
+      },
+    ]);
+  };
+
+  const handleRemoveItemLine = (id: string) => {
+    setInvoiceItems((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const handleUpdateItemLine = (id: string, field: 'itemId' | 'quantity' | 'unitPrice', val: any) => {
+    setInvoiceItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        if (field === 'itemId') {
+          const catItem = catalog.find((c) => c.id === val);
+          return {
+            ...i,
+            itemId: val,
+            unitPrice: catItem ? catItem.unitPrice : i.unitPrice,
+          };
+        }
+        return { ...i, [field]: val };
+      })
+    );
   };
 
   const handleConsultAi = async (e: React.FormEvent) => {
@@ -146,25 +198,39 @@ export default function FiscalModule() {
     if (!aiSuggestion) return;
     setDocTypeToIssue(aiSuggestion.docType);
     setSelectedEntityId(aiSuggestion.selectedEntityId);
-    setSelectedItemId(aiSuggestion.selectedItemId);
-    setQuantity(aiSuggestion.quantity || 1);
+
+    if (aiSuggestion.items && aiSuggestion.items.length > 0) {
+      setInvoiceItems(
+        aiSuggestion.items.map((it: any) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          itemId: it.itemId,
+          quantity: it.quantity || 1,
+          unitPrice: it.unitPrice || 0,
+        }))
+      );
+    }
     setIsAiModalOpen(false);
     setIsIssueModalOpen(true);
   };
 
   const handleExecuteTransmission = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEntityId || !selectedItemId) {
-      alert('Selecione o destinatário e o item a emitir.');
+    if (!selectedEntityId || invoiceItems.length === 0) {
+      alert('Selecione o destinatário e inclua ao menos um item a emitir.');
       return;
     }
+
+    const payloadItems = invoiceItems.map((item) => ({
+      itemId: item.itemId,
+      quantity: item.quantity,
+    }));
 
     setIsTransmitting(true);
     try {
       if (docTypeToIssue === 'NFe') {
-        await issueNFe(selectedEntityId, [{ itemId: selectedItemId, quantity }]);
+        await issueNFe(selectedEntityId, payloadItems);
       } else {
-        await issueNFSe(selectedEntityId, [{ itemId: selectedItemId, quantity }]);
+        await issueNFSe(selectedEntityId, payloadItems);
       }
       setIsIssueModalOpen(false);
     } catch (err: any) {
@@ -580,22 +646,78 @@ export default function FiscalModule() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Item a Faturar ({docTypeToIssue === 'NFe' ? 'Produto' : 'Serviço'})
-                </label>
-                <select
-                  required
-                  value={selectedItemId}
-                  onChange={(e) => setSelectedItemId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs outline-none focus:border-indigo-500"
-                >
-                  <option value="">Selecione o item do catálogo...</option>
-                  {availableCatalog.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      [{c.code}] {c.description} - R$ {c.unitPrice.toFixed(2)}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-semibold text-slate-300 uppercase">
+                    Itens a Faturar ({docTypeToIssue === 'NFe' ? 'Produtos' : 'Serviços'})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddItemLine}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Outro Item</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {invoiceItems.map((line, index) => {
+                    const itemData = catalog.find((c) => c.id === line.itemId);
+                    const lineTotal = line.quantity * line.unitPrice;
+
+                    return (
+                      <div
+                        key={line.id}
+                        className="p-3 bg-slate-800/80 rounded-xl border border-slate-700/60 flex items-center gap-2.5"
+                      >
+                        <span className="text-[11px] font-mono text-slate-400 w-4 text-center">{index + 1}</span>
+
+                        <div className="flex-1 min-w-0">
+                          <select
+                            required
+                            value={line.itemId}
+                            onChange={(e) => handleUpdateItemLine(line.id, 'itemId', e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs outline-none focus:border-indigo-500 truncate"
+                          >
+                            {availableCatalog.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                [{c.code}] {c.description} - R$ {c.unitPrice.toFixed(2)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="w-20">
+                          <input
+                            type="number"
+                            min="1"
+                            required
+                            placeholder="Qtd"
+                            value={line.quantity}
+                            onChange={(e) => handleUpdateItemLine(line.id, 'quantity', parseInt(e.target.value) || 1)}
+                            className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs font-mono text-center outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div className="w-24 text-right font-mono text-xs font-bold text-emerald-400">
+                          {lineTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </div>
+
+                        {invoiceItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItemLine(line.id)}
+                            className="p-1 rounded-lg text-slate-500 hover:text-rose-400 transition-colors"
+                            title="Remover Item"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {availableCatalog.length === 0 && (
                   <span className="text-[11px] text-amber-400 mt-1 block">
                     Nenhum item do tipo {docTypeToIssue === 'NFe' ? 'produto' : 'serviço'} no catálogo desta empresa.
@@ -603,17 +725,29 @@ export default function FiscalModule() {
                 )}
               </div>
 
+              <div className="p-3 bg-slate-800/40 rounded-xl border border-slate-700/50 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-300">Total Faturado ({invoiceItems.length} itens):</span>
+                <span className="text-base font-black font-mono text-emerald-400">
+                  {invoiceItems
+                    .reduce((acc, curr) => acc + curr.quantity * curr.unitPrice, 0)
+                    .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Quantidade</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-mono outline-none focus:border-indigo-500"
-                  />
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Destino Fiscal</label>
+                  <div className="px-3 py-2 bg-slate-800/60 border border-slate-700/60 rounded-xl text-slate-300 text-xs">
+                    {(() => {
+                      const selectedEntity = entities.find((e) => e.id === selectedEntityId);
+                      const isInterstate = selectedEntity && selectedEntity.address.state !== activeCompany?.address.state;
+                      return isInterstate ? (
+                        <span className="text-amber-300 font-semibold">Interestadual ({selectedEntity?.address.state}) • CFOP 6102</span>
+                      ) : (
+                        <span className="text-emerald-300 font-semibold">Interna ({activeCompany?.address.state}) • CFOP 5102</span>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Série & Próximo Nº</label>
@@ -1228,17 +1362,39 @@ export default function FiscalModule() {
                       <span className="font-bold text-white">{aiSuggestion.docType === 'NFe' ? 'NF-e (Mercadorias - Mod 55)' : 'NFS-e (Serviços)'}</span>
                     </div>
                     <div className="p-2 bg-slate-800/60 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">CFOP Aplicado:</span>
+                      <span className="text-slate-400 block text-[10px]">CFOP Sugerido:</span>
                       <span className="font-mono font-bold text-indigo-300">{aiSuggestion.suggestedCfop} {aiSuggestion.isInterstate ? '(Interestadual)' : '(Interno)'}</span>
                     </div>
-                    <div className="p-2 bg-slate-800/60 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Destinatário:</span>
+                    <div className="p-2 bg-slate-800/60 rounded-lg col-span-2">
+                      <span className="text-slate-400 block text-[10px]">Destinatário Identificado:</span>
                       <span className="font-semibold text-slate-200 truncate block">{aiSuggestion.selectedEntityName}</span>
                     </div>
-                    <div className="p-2 bg-slate-800/60 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Item & Quantidade:</span>
-                      <span className="font-bold text-emerald-400">{aiSuggestion.quantity}x {aiSuggestion.selectedItemDescription}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                      Itens Faturados Sugeridos ({aiSuggestion.items?.length || 1}):
+                    </span>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {(aiSuggestion.items || []).map((it: any, idx: number) => (
+                        <div key={idx} className="p-2 bg-slate-800/80 rounded-lg border border-slate-700/60 flex justify-between items-center text-xs">
+                          <div className="truncate mr-2">
+                            <span className="font-bold text-white block truncate">{it.description}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">Qtd: {it.quantity} • Unit: R$ {it.unitPrice?.toFixed(2)} • CFOP {it.cfop}</span>
+                          </div>
+                          <span className="font-mono font-bold text-emerald-400 shrink-0">
+                            {(it.total || it.quantity * it.unitPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                        </div>
+                      ))}
                     </div>
+                  </div>
+
+                  <div className="flex justify-between items-center p-2.5 bg-slate-800/60 rounded-lg border border-slate-700/40">
+                    <span className="text-xs font-bold text-slate-300">Valor Total Calculado:</span>
+                    <span className="text-sm font-black font-mono text-emerald-400">
+                      {(aiSuggestion.totalAmount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
                   </div>
 
                   <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1">

@@ -26,20 +26,28 @@ export interface FiscalAIAssistRequest {
   }>;
 }
 
+export interface FiscalAIAssistItem {
+  itemId: string;
+  code: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  cfop: string;
+}
+
 export interface FiscalAIAssistResponse {
   docType: 'NFe' | 'NFSe';
   selectedEntityId: string;
   selectedEntityName: string;
-  selectedItemId: string;
-  selectedItemDescription: string;
-  quantity: number;
-  unitPrice: number;
+  items: FiscalAIAssistItem[];
   suggestedCfop: string;
   natureOfOperation: string;
   isInterstate: boolean;
   taxNotes: string;
   confidenceScore: number;
   rationale: string;
+  totalAmount: number;
 }
 
 export async function processFiscalCopilot(
@@ -77,25 +85,33 @@ REGRAS FISCAIS TRIBUTÁRIAS:
 1. Se a UF do destinatário for diferente da UF da emitente (${payload.company.state}), a operação é INTERESTADUAL.
    - Venda de mercadoria dentro do estado: CFOP 5102 (ou 5101 se fabricação).
    - Venda de mercadoria interestadual (fora do estado): CFOP 6102 (ou 6101 se fabricação).
-2. Se o item faturado for do tipo "service", o documento é "NFSe". Se for "product", é "NFe".
-3. Identifique qual entidade melhor corresponde ao pedido e qual item do catálogo.
-4. Calcule a quantidade e o preço unitário.
+2. Se todos ou a maioria dos itens forem serviços, o documento é "NFSe". Se forem produtos, é "NFe".
+3. Identifique todos os itens mencionados na solicitação (ex: 20 paletes e 5 caixas ou outros itens do catálogo).
+4. Para cada item encontrado, defina itemId, code, description, quantity, unitPrice, total (quantity * unitPrice) e o cfop correspondente.
 
 Responda ESTRITAMENTE em formato JSON com o seguinte schema:
 {
   "docType": "NFe" ou "NFSe",
   "selectedEntityId": "id da entidade correspondente",
   "selectedEntityName": "nome da entidade correspondente",
-  "selectedItemId": "id do item correspondente",
-  "selectedItemDescription": "descrição do item",
-  "quantity": número,
-  "unitPrice": número,
-  "suggestedCfop": "string do CFOP de 4 dígitos",
+  "items": [
+    {
+      "itemId": "id do item do catálogo",
+      "code": "código do item",
+      "description": "descrição",
+      "quantity": número,
+      "unitPrice": número,
+      "total": número,
+      "cfop": "CFOP 4 dígitos"
+    }
+  ],
+  "totalAmount": número soma de todos os itens,
+  "suggestedCfop": "string do CFOP principal de 4 dígitos",
   "natureOfOperation": "Descrição da natureza de operação",
   "isInterstate": boolean,
   "taxNotes": "Avisos fiscais importantes (ex: incidência de DIFAL, ICMS interestadual 7% ou 12%)",
   "confidenceScore": número de 0 a 100,
-  "rationale": "Explicação concisa do raciocínio fiscal aplicado"
+  "rationale": "Explicação concisa do raciocínio fiscal aplicado para os múltiplos itens"
 }
 `;
 
@@ -110,6 +126,9 @@ Responda ESTRITAMENTE em formato JSON com o seguinte schema:
 
     const text = response.text || '';
     const parsed = JSON.parse(text) as FiscalAIAssistResponse;
+    if (!parsed.totalAmount && parsed.items?.length > 0) {
+      parsed.totalAmount = parsed.items.reduce((acc, curr) => acc + (curr.total || curr.quantity * curr.unitPrice), 0);
+    }
     return parsed;
   } catch (err) {
     console.warn('Gemini Copilot API error, using fiscal heuristics:', err);
@@ -131,33 +150,63 @@ function generateHeuristicSuggestion(payload: FiscalAIAssistRequest): FiscalAIAs
         (e.name.toLowerCase().includes('vale') && p.includes('vale'))
     ) || payload.entities[0];
 
-  // Find item
-  const item =
-    payload.catalog.find(
-      (i) =>
-        p.includes(i.description.toLowerCase()) ||
-        p.includes(i.code.toLowerCase()) ||
-        (i.description.toLowerCase().includes('palete') && p.includes('palete')) ||
-        (i.description.toLowerCase().includes('licença') && p.includes('licença'))
-    ) || payload.catalog[0];
-
-  // Extract quantity (regex for numbers followed by optional words)
-  const qtyMatch = p.match(/(\d+)\s*(un|unidades|paletes|pcs|peças)?/i);
-  const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 10;
-
   const isInterstate = entity?.state !== payload.company.state;
-  const isService = item?.type === 'service';
-  const suggestedCfop = isService ? '0000' : isInterstate ? '6102' : '5102';
+  const suggestedCfop = isInterstate ? '6102' : '5102';
+
+  // Detect matching items from catalog
+  const matchedItems: FiscalAIAssistItem[] = [];
+
+  for (const catItem of payload.catalog) {
+    if (
+      p.includes(catItem.description.toLowerCase()) ||
+      p.includes(catItem.code.toLowerCase()) ||
+      (catItem.description.toLowerCase().includes('palete') && p.includes('palete')) ||
+      (catItem.description.toLowerCase().includes('licença') && p.includes('licença'))
+    ) {
+      // Find quantity before or after item keyword
+      const regex = new RegExp(`(\\d+)\\s*(un|unidades|paletes|pcs|peças)?\\s*(de\\s*)?${catItem.description.slice(0, 8)}`, 'i');
+      const match = p.match(regex);
+      const qty = match ? parseInt(match[1], 10) : 10;
+      matchedItems.push({
+        itemId: catItem.id,
+        code: catItem.code,
+        description: catItem.description,
+        quantity: qty,
+        unitPrice: catItem.unitPrice,
+        total: qty * catItem.unitPrice,
+        cfop: catItem.type === 'service' ? '0000' : suggestedCfop,
+      });
+    }
+  }
+
+  // Fallback if no specific item matched
+  if (matchedItems.length === 0 && payload.catalog.length > 0) {
+    const first = payload.catalog[0];
+    matchedItems.push({
+      itemId: first.id,
+      code: first.code,
+      description: first.description,
+      quantity: 10,
+      unitPrice: first.unitPrice,
+      total: 10 * first.unitPrice,
+      cfop: first.type === 'service' ? '0000' : suggestedCfop,
+    });
+  }
+
+  const isService = matchedItems.every((i) => {
+    const orig = payload.catalog.find((c) => c.id === i.itemId);
+    return orig?.type === 'service';
+  });
+
+  const totalAmount = matchedItems.reduce((acc, curr) => acc + curr.total, 0);
 
   return {
     docType: isService ? 'NFSe' : 'NFe',
     selectedEntityId: entity?.id || '',
     selectedEntityName: entity?.name || '',
-    selectedItemId: item?.id || '',
-    selectedItemDescription: item?.description || '',
-    quantity: quantity > 0 ? quantity : 1,
-    unitPrice: item?.unitPrice || 85.0,
-    suggestedCfop,
+    items: matchedItems,
+    totalAmount,
+    suggestedCfop: isService ? '0000' : suggestedCfop,
     natureOfOperation: isInterstate
       ? 'VENDA DE MERCADORIA DESTINADA A OUTRO ESTADO (INTERESTADUAL)'
       : 'VENDA DE MERCADORIA DENTRO DO ESTADO',
@@ -165,7 +214,7 @@ function generateHeuristicSuggestion(payload: FiscalAIAssistRequest): FiscalAIAs
     taxNotes: isInterstate
       ? `Operação Interestadual (${payload.company.state} -> ${entity.state}). Aplicar alíquota interestadual de ICMS (12% ou 7%) e verificar protocolo de DIFAL/ST.`
       : 'Operação interna dentro do estado. Tributação padrão do Simples Nacional / ICMS próprio.',
-    confidenceScore: 95,
-    rationale: `Identificado automaticamente: Entidade "${entity?.name}" (${entity?.state}) e item "${item?.description}". Como o destino é ${entity?.state} e a emitente é ${payload.company.state}, o CFOP sugerido é ${suggestedCfop}.`,
+    confidenceScore: 96,
+    rationale: `Identificado com sucesso: Destinatário "${entity?.name}" (${entity?.state}) e ${matchedItems.length} item(ns) faturado(s) com valor total de R$ ${totalAmount.toFixed(2)}.`,
   };
 }
