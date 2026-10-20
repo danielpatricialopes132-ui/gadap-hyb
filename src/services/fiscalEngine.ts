@@ -93,8 +93,8 @@ export interface FiscalProvider {
  * Produção: https://api.focusnfe.com.br/v2
  */
 export class FocusNFeProvider implements FiscalProvider {
-  name = 'Focus NFe (Provedor Principal)';
-  isPrimary = true;
+  name = 'Focus NFe (Opção Secundária)';
+  isPrimary = false;
 
   private getBaseUrl(env: 'homologacao' | 'producao' = 'homologacao') {
     return env === 'producao'
@@ -313,8 +313,8 @@ export class FocusNFeProvider implements FiscalProvider {
  * Produção: https://api.fiscalcontora.com.br/v1
  */
 export class FiscalContoraProvider implements FiscalProvider {
-  name = 'Fiscal Contora (Opção Secundária)';
-  isPrimary = false;
+  name = 'Fiscal Contora (Provedor Principal)';
+  isPrimary = true;
 
   private getBaseUrl(env: 'homologacao' | 'producao' = 'homologacao') {
     return env === 'producao'
@@ -419,12 +419,12 @@ export class UniversalFiscalGateway {
   private focusNfe = new FocusNFeProvider();
   private fiscalContora = new FiscalContoraProvider();
 
-  getProvider(providerType: 'focus_nfe' | 'fiscal_contora' | 'contora' = 'focus_nfe'): FiscalProvider {
-    if (providerType === 'fiscal_contora' || providerType === 'contora') {
-      return this.fiscalContora;
+  getProvider(providerType: 'focus_nfe' | 'fiscal_contora' | 'contora' = 'contora'): FiscalProvider {
+    if (providerType === 'focus_nfe') {
+      return this.focusNfe;
     }
-    // Focus NFe is primary default
-    return this.focusNfe;
+    // Fiscal Contora is primary default
+    return this.fiscalContora;
   }
 }
 

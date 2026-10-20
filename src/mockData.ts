@@ -21,8 +21,8 @@ export const INITIAL_COMPANIES: Company[] = [
       zipCode: '04794-000',
     },
     fiscalSettings: {
-      provider: 'focus_nfe',
-      focusNfeToken: 'zxo8PwpkrndBrq8QcJnA3Q1y7NHG3vbx',
+      provider: 'fiscal_contora',
+      fiscalContoraApiKey: 'fct_kZb1iYeS5UslpJ4K8f0YhElaItZYozFHtqTohjPWUr9cqtGP',
       environment: 'producao',
       certificateA1Installed: true,
       certificateExpiresAt: '2027-08-15',

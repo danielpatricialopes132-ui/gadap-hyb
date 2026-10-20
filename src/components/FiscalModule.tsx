@@ -434,8 +434,8 @@ export default function FiscalModule() {
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs uppercase tracking-wider font-bold text-indigo-400">
-              Gateway Fiscal Focus NFe (Principal) & Fiscal Contora (Alternativo)
+            <span className="text-xs uppercase tracking-wider font-bold text-cyan-400">
+              Gateway Fiscal Contora (Principal) & Focus NFe (Secundário / Redundância)
             </span>
           </div>
           <h2 className="text-xl font-black text-white mt-1">
@@ -495,10 +495,10 @@ export default function FiscalModule() {
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Provedor Ativo</span>
           <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-400" />
-            {activeCompany?.fiscalSettings.provider === 'fiscal_contora'
-              ? 'Fiscal Contora (Sec.)'
-              : 'Focus NFe (Principal)'}
+            <span className={`w-2 h-2 rounded-full ${activeCompany?.fiscalSettings.provider === 'focus_nfe' ? 'bg-indigo-400' : 'bg-cyan-400'}`} />
+            {activeCompany?.fiscalSettings.provider === 'focus_nfe'
+              ? 'Focus NFe (Secundário)'
+              : 'Fiscal Contora (Principal)'}
           </div>
         </div>
 
@@ -1004,7 +1004,26 @@ export default function FiscalModule() {
                   Provedor Fiscal por Empresa / Tenant
                 </label>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  {/* Focus NFe - Provedor Principal */}
+                  {/* Fiscal Contora - Provedor Principal */}
+                  <button
+                    type="button"
+                    onClick={() => setProvider('fiscal_contora')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      provider === 'fiscal_contora' || provider === 'contora'
+                        ? 'border-cyan-500 bg-cyan-600/20 text-cyan-300 font-bold shadow-md shadow-cyan-950/50 ring-1 ring-cyan-500/50'
+                        : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-bold text-white">Fiscal Contora</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold uppercase">
+                        Principal
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-normal">API v1 • Gateway SEFAZ Rápido</div>
+                  </button>
+
+                  {/* Focus NFe - Opção Secundária */}
                   <button
                     type="button"
                     onClick={() => setProvider('focus_nfe')}
@@ -1017,29 +1036,10 @@ export default function FiscalModule() {
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-xs font-bold text-white">Focus NFe</span>
                       <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold uppercase">
-                        Principal
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-normal">API REST v2 • SEFAZ Multi-cidades</div>
-                  </button>
-
-                  {/* Fiscal Contora - Opção Alternativa / Secundária */}
-                  <button
-                    type="button"
-                    onClick={() => setProvider('fiscal_contora')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      provider === 'fiscal_contora'
-                        ? 'border-cyan-500 bg-cyan-600/20 text-cyan-300 font-bold shadow-md shadow-cyan-950/50 ring-1 ring-cyan-500/50'
-                        : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-xs font-bold text-white">Fiscal Contora</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-semibold uppercase">
                         Secundário
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-normal">Opção Alternativa • Gateway SEFAZ</div>
+                    <div className="text-[10px] text-slate-400 font-normal">API REST v2 • Backup SEFAZ</div>
                   </button>
                 </div>
 

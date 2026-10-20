@@ -80,20 +80,21 @@ export function getFiscalProvider(
 ): FiscalProvider {
   const chosen = providerType?.toLowerCase();
 
-  if (chosen === 'contora' || chosen === 'fiscal_contora') {
-    const hasContoraKey =
-      Boolean(credentials?.contoraApiKey) ||
-      Boolean(process.env.CONTORA_API_KEY) ||
-      Boolean(process.env.FISCAL_CONTORA_API_KEY);
+  if (chosen === 'focus_nfe') {
+    return new FocusNFeProvider();
+  }
 
-    if (!hasContoraKey) {
-      // If user explicitly chose Contora but has neither company nor global env key
-      return new ContoraProvider();
-    }
+  // Fiscal Contora (Provedor Principal Padrão)
+  const hasContoraKey =
+    Boolean(credentials?.contoraApiKey) ||
+    Boolean(process.env.CONTORA_API_KEY) ||
+    Boolean(process.env.FISCAL_CONTORA_API_KEY);
+
+  if (hasContoraKey) {
     return new ContoraProvider();
   }
 
-  // Focus NFe (Default)
+  // Focus NFe (Fallback)
   const hasFocusToken =
     Boolean(credentials?.focusToken) ||
     Boolean(process.env.FOCUS_NFE_TOKEN);
@@ -103,11 +104,11 @@ export function getFiscalProvider(
   }
 
   // Fallback to Mock if neither key exists
-  if (!hasFocusToken && !process.env.CONTORA_API_KEY) {
+  if (!hasContoraKey && !hasFocusToken) {
     return new MockFiscalProvider();
   }
 
-  return new FocusNFeProvider();
+  return new ContoraProvider();
 }
 
 // Re-export providers & interfaces for standard usage

@@ -8,8 +8,8 @@ import { FiscalProvider, NFePayload, NFSePayload, FiscalResponse, FiscalStatus }
  * Authentication: Authorization: Bearer ${CONTORA_API_KEY} (or X-Contora-Api-Key)
  */
 export class ContoraProvider implements FiscalProvider {
-  name = 'Fiscal Contora';
-  isPrimary = false;
+  name = 'Fiscal Contora (Provedor Principal)';
+  isPrimary = true;
 
   private baseUrl = 'https://api.fiscal.contora.com.br/v1';
 

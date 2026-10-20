@@ -25,7 +25,7 @@ export default function FiscalSettingsPage() {
   const { activeCompany, updateFiscalSettings } = useApp();
 
   const currentSettings = activeCompany?.fiscalSettings || {
-    provider: 'focus_nfe',
+    provider: 'fiscal_contora',
     environment: 'homologacao',
     certificateA1Installed: true,
     nfeSeries: 1,
@@ -38,7 +38,7 @@ export default function FiscalSettingsPage() {
   };
 
   const [provider, setProvider] = useState<'focus_nfe' | 'contora' | 'fiscal_contora'>(
-    (currentSettings.provider as any) || 'focus_nfe'
+    (currentSettings.provider as any) || 'contora'
   );
   const [environment, setEnvironment] = useState<'homologacao' | 'producao'>(
     currentSettings.environment || 'homologacao'
@@ -211,7 +211,52 @@ export default function FiscalSettingsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Card Focus NFe */}
+            {/* Card Fiscal Contora - Provedor Principal */}
+            <div
+              onClick={() => setProvider('contora')}
+              className={`p-5 rounded-xl border cursor-pointer transition-all ${
+                provider === 'contora' || provider === 'fiscal_contora'
+                  ? 'bg-cyan-600/15 border-cyan-500 ring-2 ring-cyan-500/20'
+                  : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                    provider === 'contora' || provider === 'fiscal_contora'
+                      ? 'bg-cyan-500 text-white'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    C
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                      Fiscal Contora
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                        Provedor Principal
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">API v1 • Gateway SEFAZ de Alta Performance</div>
+                  </div>
+                </div>
+
+                <input
+                  type="radio"
+                  name="fiscal_provider"
+                  checked={provider === 'contora' || provider === 'fiscal_contora'}
+                  onChange={() => setProvider('contora')}
+                  className="mt-1 text-cyan-600 focus:ring-cyan-500"
+                />
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                <div>• Base URL: <code className="text-slate-300">https://api.fiscal.contora.com.br/v1</code></div>
+                <div>• Autenticação: Bearer Token / X-Contora-Api-Key</div>
+                <div>• Motor de alta disponibilidade e emissão instantânea</div>
+              </div>
+            </div>
+
+            {/* Card Focus NFe - Opção Secundária */}
             <div
               onClick={() => setProvider('focus_nfe')}
               className={`p-5 rounded-xl border cursor-pointer transition-all ${
@@ -230,11 +275,11 @@ export default function FiscalSettingsPage() {
                   <div>
                     <div className="text-sm font-bold text-white flex items-center gap-2">
                       Focus NFe
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                        Padrão Nacional
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                        Opção Secundária
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400">API REST v2 • Homologação SEFAZ Direta</div>
+                    <div className="text-[11px] text-slate-400">API REST v2 • Backup e Redundância</div>
                   </div>
                 </div>
 
@@ -251,51 +296,6 @@ export default function FiscalSettingsPage() {
                 <div>• Homologação: <code className="text-slate-300">homologacao.focusnfe.com.br</code></div>
                 <div>• Produção: <code className="text-slate-300">api.focusnfe.com.br</code></div>
                 <div>• Autenticação: Basic Auth via Token</div>
-              </div>
-            </div>
-
-            {/* Card Fiscal Contora */}
-            <div
-              onClick={() => setProvider('contora')}
-              className={`p-5 rounded-xl border cursor-pointer transition-all ${
-                provider === 'contora' || provider === 'fiscal_contora'
-                  ? 'bg-indigo-600/15 border-indigo-500 ring-2 ring-indigo-500/20'
-                  : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                    provider === 'contora' || provider === 'fiscal_contora'
-                      ? 'bg-cyan-500 text-white'
-                      : 'bg-slate-800 text-slate-400'
-                  }`}>
-                    C
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-white flex items-center gap-2">
-                      Fiscal Contora
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">
-                        Provedor Secundário
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-400">API v1 • Baixa Latência e Backup Automático</div>
-                  </div>
-                </div>
-
-                <input
-                  type="radio"
-                  name="fiscal_provider"
-                  checked={provider === 'contora' || provider === 'fiscal_contora'}
-                  onChange={() => setProvider('contora')}
-                  className="mt-1 text-indigo-600 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-                <div>• Base URL: <code className="text-slate-300">https://api.fiscal.contora.com.br/v1</code></div>
-                <div>• Autenticação: Bearer Token / X-Contora-Api-Key</div>
-                <div>• Alternância imediata caso Focus NFe atinja limite</div>
               </div>
             </div>
           </div>
