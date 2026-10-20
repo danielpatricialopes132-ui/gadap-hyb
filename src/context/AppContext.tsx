@@ -219,16 +219,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextNumber = activeCompany.fiscalSettings.nfeCurrentNumber + 1;
     const currentSeries = activeCompany.fiscalSettings.nfeSeries;
 
-    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'nuvem_fiscal');
+    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'focus_nfe');
     const credentials =
-      activeCompany.fiscalSettings.provider === 'focus_nfe'
+      activeCompany.fiscalSettings.provider === 'fiscal_contora'
         ? {
-            token: activeCompany.fiscalSettings.focusNfeToken,
+            apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
+            secret: activeCompany.fiscalSettings.fiscalContoraSecret,
             environment: activeCompany.fiscalSettings.environment,
           }
         : {
-            clientId: activeCompany.fiscalSettings.nuvemFiscalClientId,
-            clientSecret: activeCompany.fiscalSettings.nuvemFiscalClientSecret,
+            token: activeCompany.fiscalSettings.focusNfeToken,
             environment: activeCompany.fiscalSettings.environment,
           };
 
@@ -317,16 +317,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextNumber = activeCompany.fiscalSettings.nfseCurrentNumber + 1;
     const currentSeries = activeCompany.fiscalSettings.nfseSeries;
 
-    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'nuvem_fiscal');
+    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'focus_nfe');
     const credentials =
-      activeCompany.fiscalSettings.provider === 'focus_nfe'
+      activeCompany.fiscalSettings.provider === 'fiscal_contora'
         ? {
-            token: activeCompany.fiscalSettings.focusNfeToken,
+            apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
+            secret: activeCompany.fiscalSettings.fiscalContoraSecret,
             environment: activeCompany.fiscalSettings.environment,
           }
         : {
-            clientId: activeCompany.fiscalSettings.nuvemFiscalClientId,
-            clientSecret: activeCompany.fiscalSettings.nuvemFiscalClientSecret,
+            token: activeCompany.fiscalSettings.focusNfeToken,
             environment: activeCompany.fiscalSettings.environment,
           };
 
@@ -398,7 +398,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cancelFiscalDoc = async (docId: string, justification: string): Promise<boolean> => {
-    const provider = fiscalGateway.getProvider(activeCompany?.fiscalSettings.provider || 'nuvem_fiscal');
+    const provider = fiscalGateway.getProvider(activeCompany?.fiscalSettings.provider || 'focus_nfe');
     await provider.cancelDocument(docId, justification);
     setDocuments((prev) =>
       prev.map((doc) => (doc.id === docId ? { ...doc, status: 'Canceled' as const } : doc))

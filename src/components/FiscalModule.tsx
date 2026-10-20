@@ -32,17 +32,17 @@ export default function FiscalModule() {
   const [previewDoc, setPreviewDoc] = useState<FiscalDocument | null>(null);
 
   // Settings form
-  const [provider, setProvider] = useState<'nuvem_fiscal' | 'focus_nfe' | 'mock'>(
-    activeCompany?.fiscalSettings.provider || 'nuvem_fiscal'
-  );
-  const [nuvemClientId, setNuvemClientId] = useState(
-    activeCompany?.fiscalSettings.nuvemFiscalClientId || ''
-  );
-  const [nuvemClientSecret, setNuvemClientSecret] = useState(
-    activeCompany?.fiscalSettings.nuvemFiscalClientSecret || ''
+  const [provider, setProvider] = useState<'focus_nfe' | 'fiscal_contora'>(
+    activeCompany?.fiscalSettings.provider || 'focus_nfe'
   );
   const [focusToken, setFocusToken] = useState(
     activeCompany?.fiscalSettings.focusNfeToken || ''
+  );
+  const [contoraApiKey, setContoraApiKey] = useState(
+    activeCompany?.fiscalSettings.fiscalContoraApiKey || ''
+  );
+  const [contoraSecret, setContoraSecret] = useState(
+    activeCompany?.fiscalSettings.fiscalContoraSecret || ''
   );
   const [env, setEnv] = useState<'homologacao' | 'producao'>(
     activeCompany?.fiscalSettings.environment || 'homologacao'
@@ -115,9 +115,9 @@ export default function FiscalModule() {
       nfeCurrentNumber,
       nfseSeries,
       nfseCurrentNumber,
-      nuvemFiscalClientId: nuvemClientId,
-      nuvemFiscalClientSecret: nuvemClientSecret,
       focusNfeToken: focusToken,
+      fiscalContoraApiKey: contoraApiKey,
+      fiscalContoraSecret: contoraSecret,
     });
     setIsSettingsModalOpen(false);
   };
@@ -130,7 +130,7 @@ export default function FiscalModule() {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs uppercase tracking-wider font-bold text-indigo-400">
-              Gateway Fiscal NuvemFiscal / FocusNFe Integrado
+              Gateway Fiscal Focus NFe (Principal) & Fiscal Contora (Alternativo)
             </span>
           </div>
           <h2 className="text-xl font-black text-white mt-1">
@@ -172,7 +172,9 @@ export default function FiscalModule() {
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Provedor Ativo</span>
           <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-400" />
-            {activeCompany?.fiscalSettings.provider === 'focus_nfe' ? 'Focus NFe v2' : 'Nuvem Fiscal v2'}
+            {activeCompany?.fiscalSettings.provider === 'fiscal_contora'
+              ? 'Fiscal Contora (Sec.)'
+              : 'Focus NFe (Principal)'}
           </div>
         </div>
 
@@ -558,68 +560,95 @@ export default function FiscalModule() {
             <form onSubmit={handleSaveSettings} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Provedor Fiscal Ativo (Adapter)
+                  Provedor Fiscal por Empresa / Tenant
                 </label>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setProvider('nuvem_fiscal')}
-                    className={`p-3 rounded-xl border text-left transition-colors ${
-                      provider === 'nuvem_fiscal'
-                        ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold'
-                        : 'border-slate-800 bg-slate-800/40 text-slate-400'
-                    }`}
-                  >
-                    <div className="text-xs font-bold">Nuvem Fiscal</div>
-                    <div className="text-[10px] text-slate-500 font-normal">OAuth2 • NF-e & NFS-e v2</div>
-                  </button>
+                  {/* Focus NFe - Provedor Principal */}
                   <button
                     type="button"
                     onClick={() => setProvider('focus_nfe')}
-                    className={`p-3 rounded-xl border text-left transition-colors ${
+                    className={`p-3 rounded-xl border text-left transition-all ${
                       provider === 'focus_nfe'
-                        ? 'border-cyan-500 bg-cyan-600/20 text-cyan-300 font-bold'
-                        : 'border-slate-800 bg-slate-800/40 text-slate-400'
+                        ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300 font-bold shadow-md shadow-indigo-950/50 ring-1 ring-indigo-500/50'
+                        : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700'
                     }`}
                   >
-                    <div className="text-xs font-bold">Focus NFe</div>
-                    <div className="text-[10px] text-slate-500 font-normal">API Token • SEFAZ Multi-cidades</div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-bold text-white">Focus NFe</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold uppercase">
+                        Principal
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-normal">API REST v2 • SEFAZ Multi-cidades</div>
+                  </button>
+
+                  {/* Fiscal Contora - Opção Alternativa / Secundária */}
+                  <button
+                    type="button"
+                    onClick={() => setProvider('fiscal_contora')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      provider === 'fiscal_contora'
+                        ? 'border-cyan-500 bg-cyan-600/20 text-cyan-300 font-bold shadow-md shadow-cyan-950/50 ring-1 ring-cyan-500/50'
+                        : 'border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-bold text-white">Fiscal Contora</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-semibold uppercase">
+                        Secundário
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-normal">Opção Alternativa • Gateway SEFAZ</div>
                   </button>
                 </div>
 
-                {provider === 'nuvem_fiscal' ? (
-                  <div className="p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-xl space-y-2">
-                    <div>
-                      <label className="block text-[11px] text-slate-300 mb-1">Client ID (Nuvem Fiscal)</label>
-                      <input
-                        type="text"
-                        value={nuvemClientId}
-                        onChange={(e) => setNuvemClientId(e.target.value)}
-                        placeholder="Ex: client_id_sandbox_xxx"
-                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono outline-none focus:border-indigo-500"
-                      />
+                {provider === 'focus_nfe' ? (
+                  <div className="p-3 bg-indigo-950/20 border border-indigo-500/30 rounded-xl">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-semibold text-indigo-300">
+                        Token de Acesso (Focus NFe API v2)
+                      </label>
+                      <span className="text-[10px] text-slate-400">Provedor Principal Ativo</span>
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-300 mb-1">Client Secret</label>
-                      <input
-                        type="password"
-                        value={nuvemClientSecret}
-                        onChange={(e) => setNuvemClientSecret(e.target.value)}
-                        placeholder="••••••••••••••••"
-                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl">
-                    <label className="block text-[11px] text-slate-300 mb-1">Token de Acesso (Focus NFe API v2)</label>
                     <input
                       type="password"
                       value={focusToken}
                       onChange={(e) => setFocusToken(e.target.value)}
                       placeholder="Ex: seu_token_focus_nfe_homologacao"
-                      className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono outline-none focus:border-indigo-500"
                     />
+                    <span className="text-[10px] text-slate-500 mt-1 block">
+                      Token exclusivo vinculado à conta da empresa na Focus NFe.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-cyan-950/20 border border-cyan-500/30 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-cyan-300">
+                        Credenciais Fiscal Contora
+                      </span>
+                      <span className="text-[10px] text-cyan-400">Opção Alternativa</span>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">API Key (Fiscal Contora)</label>
+                      <input
+                        type="text"
+                        value={contoraApiKey}
+                        onChange={(e) => setContoraApiKey(e.target.value)}
+                        placeholder="Ex: fc_live_apikey_xxx ou fc_test_xxx"
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 mb-0.5">Secret Token</label>
+                      <input
+                        type="password"
+                        value={contoraSecret}
+                        onChange={(e) => setContoraSecret(e.target.value)}
+                        placeholder="••••••••••••••••"
+                        className="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono outline-none focus:border-cyan-500"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
