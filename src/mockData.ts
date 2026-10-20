@@ -259,8 +259,8 @@ export const INITIAL_DOCUMENTS: FiscalDocument[] = [
         ncm: '4415.20.00',
       },
     ],
-    xmlUrl: 'https://mock.fiscal.gadap.com.br/xml/35261045182903000144550010000010411892019402.xml',
-    pdfDanfeUrl: 'https://mock.fiscal.gadap.com.br/danfe/35261045182903000144550010000010411892019402.pdf',
+    xmlUrl: '/api/danfe/35261045182903000144550010000010411892019402?format=xml',
+    pdfDanfeUrl: '/api/danfe/35261045182903000144550010000010411892019402',
   },
   {
     id: 'doc-02',
@@ -285,6 +285,6 @@ export const INITIAL_DOCUMENTS: FiscalDocument[] = [
         total: 980.00,
       },
     ],
-    pdfDanfeUrl: 'https://mock.fiscal.gadap.com.br/nfse/NFSE-2-889.pdf',
+    pdfDanfeUrl: '/api/danfe/NFSE-2-889',
   },
 ];

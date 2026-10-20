@@ -167,8 +167,8 @@ export class FocusNFeProvider implements FiscalProvider {
       protocol: `1352600${Math.floor(10000000 + Math.random() * 90000000)}`,
       status: 'Authorized',
       message: 'Autorizado o uso da NF-e (Focus NFe Engine SEFAZ)',
-      xmlUrl: `https://homologacao.focusnfe.com.br/notas_fiscais/${randomKey}.xml`,
-      pdfUrl: `https://homologacao.focusnfe.com.br/danfe/${randomKey}.pdf`,
+      xmlUrl: `/api/danfe/${randomKey}?format=xml`,
+      pdfUrl: `/api/danfe/${randomKey}?type=NFe&num=${payload.number}&series=${payload.series}&total=${payload.totalAmount}`,
       providerUsed: this.name,
     };
   }
