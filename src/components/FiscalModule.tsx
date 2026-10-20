@@ -565,8 +565,20 @@ export default function FiscalModule() {
             className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer border border-purple-400/30"
           >
             <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" />
-            <span>Copiloto Fiscal IA (Gemini)</span>
+            <span>Copiloto Fiscal IA</span>
           </button>
+          <a
+            href="#help"
+            onClick={(e) => {
+              e.preventDefault();
+              window.dispatchEvent(new CustomEvent('gadap:navigate', { detail: 'help' }));
+            }}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+            title="Acessar o Manual Professoral Completo e a IA Tutora com Autoaprendizado"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Manual & IA Tutora</span>
+          </a>
           <button
             onClick={handleRunTestEmission}
             className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 flex items-center gap-2 transition-all cursor-pointer border border-cyan-400/30"

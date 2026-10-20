@@ -9,6 +9,7 @@ import CompaniesManager from '@/components/CompaniesManager';
 import EntitiesManager from '@/components/EntitiesManager';
 import CatalogManager from '@/components/CatalogManager';
 import FiscalModule from '@/components/FiscalModule';
+import HelpAndManualView from '@/components/HelpAndManualView';
 import {
   LayoutDashboard,
   Building2,
@@ -22,14 +23,25 @@ import {
   Menu,
   X,
   Sparkles,
+  GraduationCap,
 } from 'lucide-react';
 
-type Tab = 'dashboard' | 'companies' | 'entities' | 'catalog' | 'fiscal';
+type Tab = 'dashboard' | 'companies' | 'entities' | 'catalog' | 'fiscal' | 'help';
 
 export default function AppShell() {
   const { session, logout, activeCompany } = useApp();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  React.useEffect(() => {
+    const handleNavigate = (e: any) => {
+      if (e.detail) {
+        setActiveTab(e.detail as Tab);
+      }
+    };
+    window.addEventListener('gadap:navigate', handleNavigate);
+    return () => window.removeEventListener('gadap:navigate', handleNavigate);
+  }, []);
 
   if (!session) {
     return <AuthScreen />;
@@ -41,6 +53,7 @@ export default function AppShell() {
     { id: 'entities' as Tab, label: 'Clientes & Fornecedores', icon: Users },
     { id: 'catalog' as Tab, label: 'Produtos & Serviços', icon: Package },
     { id: 'companies' as Tab, label: 'Unidades & Empresas', icon: Building2 },
+    { id: 'help' as Tab, label: 'Manual & IA Tutora', icon: GraduationCap, badge: 'Autoaprendizado' },
   ];
 
   return (
@@ -171,6 +184,7 @@ export default function AppShell() {
             {activeTab === 'entities' && <EntitiesManager />}
             {activeTab === 'catalog' && <CatalogManager />}
             {activeTab === 'companies' && <CompaniesManager />}
+            {activeTab === 'help' && <HelpAndManualView />}
           </div>
         </main>
       </div>
