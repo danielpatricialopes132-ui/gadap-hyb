@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Entity, EntityRole, EntityType } from '@/types/domain';
-import { Users, Plus, Search, Filter, Trash2, Edit3, MapPin, Mail, Phone, Building, User, CheckCircle2 } from 'lucide-react';
+import { Users, Plus, Search, Filter, Trash2, Edit3, MapPin, Mail, Phone, Building, User, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
 
 export default function EntitiesManager() {
   const { entities, addEntity, updateEntity, deleteEntity, activeCompany } = useApp();
@@ -29,6 +29,8 @@ export default function EntitiesManager() {
   const [state, setState] = useState('SP');
   const [indicadorIE, setIndicadorIE] = useState<'1' | '2' | '9'>('1');
   const [isLoadingCep, setIsLoadingCep] = useState(false);
+  const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
+  const [cnpjFeedback, setCnpjFeedback] = useState<string | null>(null);
 
   const filteredEntities = entities.filter((ent) => {
     const matchesSearch =
@@ -38,6 +40,45 @@ export default function EntitiesManager() {
     const matchesRole = filterRole === 'all' || ent.role === filterRole || ent.role === 'ambos';
     return matchesSearch && matchesRole;
   });
+
+  // Automatic CNPJ Fetching (Receita Federal)
+  const handleCnpjLookup = async () => {
+    const cleanCnpj = document.replace(/\D/g, '');
+    if (cleanCnpj.length !== 14) {
+      alert('Digite os 14 dígitos do CNPJ para consultar na Receita Federal.');
+      return;
+    }
+
+    setIsLoadingCnpj(true);
+    setCnpjFeedback(null);
+
+    try {
+      const res = await fetch(`/api/cnpj?cnpj=${cleanCnpj}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setName(data.razaoSocial || '');
+        setTradeName(data.nomeFantasia || '');
+        setEmail(data.email || email);
+        setPhone(data.telefone || phone);
+        if (data.endereco) {
+          setZipCode(data.endereco.cep || '');
+          setStreet(data.endereco.logradouro || '');
+          setNumber(data.endereco.numero || '');
+          setDistrict(data.endereco.bairro || '');
+          setCity(data.endereco.municipio || '');
+          setState(data.endereco.uf || 'SP');
+        }
+        setCnpjFeedback(`Dados importados da Receita Federal: ${data.situacao}`);
+      } else {
+        alert(data.error || 'CNPJ não encontrado na Receita Federal.');
+      }
+    } catch (err: any) {
+      alert(`Falha ao consultar CNPJ: ${err.message}`);
+    } finally {
+      setIsLoadingCnpj(false);
+    }
+  };
 
   // Automatic CEP Fetching simulation (ViaCEP pattern)
   const handleCepLookup = async (cep: string) => {
@@ -386,9 +427,31 @@ export default function EntitiesManager() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    {type === 'PJ' ? 'CNPJ' : 'CPF'}
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-semibold text-slate-300 uppercase">
+                      {type === 'PJ' ? 'CNPJ' : 'CPF'}
+                    </label>
+                    {type === 'PJ' && (
+                      <button
+                        type="button"
+                        disabled={isLoadingCnpj}
+                        onClick={handleCnpjLookup}
+                        className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                      >
+                        {isLoadingCnpj ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Buscando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 text-indigo-400" />
+                            <span>Buscar na Receita Federal</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
@@ -397,6 +460,11 @@ export default function EntitiesManager() {
                     placeholder={type === 'PJ' ? '00.000.000/0001-00' : '000.000.000-00'}
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-mono outline-none focus:border-indigo-500"
                   />
+                  {cnpjFeedback && (
+                    <span className="text-[10px] text-emerald-400 font-medium mt-1 block">
+                      ✓ {cnpjFeedback}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Inscrição Estadual (IE)</label>

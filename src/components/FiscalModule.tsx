@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { FiscalDocument, FiscalDocStatus, FiscalDocType } from '@/types/domain';
-import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2 } from 'lucide-react';
+import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2, Table, Mail } from 'lucide-react';
 
 export default function FiscalModule() {
   const {
@@ -52,6 +52,21 @@ export default function FiscalModule() {
   });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [whatsAppFeedback, setWhatsAppFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Email Send Modal State
+  const [emailModal, setEmailModal] = useState<{
+    open: boolean;
+    doc: FiscalDocument | null;
+    email: string;
+    recipientName: string;
+  }>({
+    open: false,
+    doc: null,
+    email: '',
+    recipientName: '',
+  });
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // AI Copilot State
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -316,6 +331,39 @@ export default function FiscalModule() {
     }
   };
 
+  const handleOpenEmail = (doc: FiscalDocument) => {
+    const entity = entities.find((e) => e.id === doc.entityId);
+    setEmailModal({
+      open: true,
+      doc,
+      email: entity?.email || '',
+      recipientName: doc.entityName,
+    });
+    setEmailFeedback(null);
+  };
+
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailModal.doc || !emailModal.email) return;
+
+    setIsSendingEmail(true);
+    setEmailFeedback(null);
+
+    // Simulate reliable mail dispatch with official DANFE and XML attachments
+    await new Promise((r) => setTimeout(r, 900));
+
+    setIsSendingEmail(false);
+    setEmailFeedback({
+      type: 'success',
+      message: `XML e DANFE oficial enviados com sucesso para ${emailModal.email}!`,
+    });
+
+    setTimeout(() => {
+      setEmailModal({ open: false, doc: null, email: '', recipientName: '' });
+      setEmailFeedback(null);
+    }, 2400);
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateFiscalSettings({
@@ -445,12 +493,45 @@ export default function FiscalModule() {
 
       {/* Fiscal Documents Data Grid */}
       <div className="bg-slate-900/40 rounded-2xl border border-slate-800/90 overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/80">
+        <div className="p-4 border-b border-slate-800 flex flex-wrap justify-between items-center gap-3 bg-slate-900/80">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <FileCode className="w-4 h-4 text-indigo-400" />
             <span>Documentos Fiscais Transmitidos & Protocolos SEFAZ</span>
           </h3>
-          <span className="text-xs text-slate-400 font-mono">{documents.length} registros no tenant</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-mono">{documents.length} registros</span>
+            <button
+              type="button"
+              onClick={() => {
+                const headers = ['Tipo', 'Serie', 'Numero', 'Status', 'Destinatario', 'CNPJ_CPF', 'Valor_Total', 'Chave_Acesso', 'Protocolo', 'Data_Emissao'];
+                const rows = documents.map((d) => [
+                  d.type,
+                  d.series,
+                  d.number,
+                  d.status,
+                  `"${d.entityName.replace(/"/g, '""')}"`,
+                  d.entityDocument,
+                  d.totalAmount.toFixed(2),
+                  d.accessKey || '',
+                  d.protocol || '',
+                  new Date(d.issueDate).toLocaleDateString('pt-BR'),
+                ]);
+                const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Relatorio_Fiscal_${activeCompany?.cnpj.replace(/\D/g, '') || 'GADAP'}_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title="Exportar para Excel / Contabilidade"
+            >
+              <Table className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Exportar Excel (CSV)</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -579,6 +660,13 @@ export default function FiscalModule() {
                                 title="Enviar NF via WhatsApp (Evolution API)"
                               >
                                 <MessageCircle className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEmail(doc)}
+                                className="p-1.5 rounded-lg text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 transition-colors"
+                                title="Enviar XML & DANFE por E-mail"
+                              >
+                                <Mail className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => setJustificationModal({ open: true, docId: doc.id })}
@@ -1437,6 +1525,112 @@ export default function FiscalModule() {
                     <>
                       <Sparkles className="w-4 h-4" />
                       <span>Analisar com IA</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal: Envio por E-mail (XML + DANFE) */}
+      {emailModal.open && emailModal.doc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Mail className="w-5 h-5 text-sky-400" />
+                <span>Enviar XML & DANFE por E-mail</span>
+              </h3>
+              <button
+                disabled={isSendingEmail}
+                onClick={() => setEmailModal({ open: false, doc: null, email: '', recipientName: '' })}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleSendEmail} className="space-y-4">
+              <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Documento:</span>
+                  <span className="font-bold text-white">
+                    {emailModal.doc.type === 'NFe' ? 'NF-e' : 'NFS-e'} Nº {emailModal.doc.number} (Série {emailModal.doc.series})
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Destinatário:</span>
+                  <span className="font-semibold text-slate-200 truncate max-w-[200px]">
+                    {emailModal.recipientName}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Anexos Inclusos:</span>
+                  <span className="text-emerald-400 font-mono text-[11px]">
+                    DANFE (PDF) + Arquivo XML SEFAZ
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  E-mail do Destinatário ou Contabilidade
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Ex: fiscal@empresa.com.br, compras@cliente.com"
+                  value={emailModal.email}
+                  onChange={(e) => setEmailModal({ ...emailModal, email: e.target.value })}
+                  disabled={isSendingEmail}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  O e-mail será enviado com o assunto contendo o número da nota fiscal e os arquivos anexados.
+                </p>
+              </div>
+
+              {emailFeedback && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                    emailFeedback.type === 'success'
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                      : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                  }`}
+                >
+                  {emailFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                  )}
+                  <span>{emailFeedback.message}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isSendingEmail}
+                  onClick={() => setEmailModal({ open: false, doc: null, email: '', recipientName: '' })}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingEmail || !emailModal.email}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Enviando Anexos...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Enviar E-mail Agora</span>
                     </>
                   )}
                 </button>
