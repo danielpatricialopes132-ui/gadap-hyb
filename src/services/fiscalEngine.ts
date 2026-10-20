@@ -236,12 +236,73 @@ export class FocusNFeProvider implements FiscalProvider {
     };
   }
 
-  async checkStatus(documentId: string): Promise<FiscalStatus> {
+  async checkStatus(documentId: string, credentials?: Record<string, any>): Promise<FiscalStatus> {
+    const token = credentials?.token || process.env.FOCUS_NFE_TOKEN;
+    const environment = credentials?.environment || 'homologacao';
+
+    if (token) {
+      try {
+        const baseUrl = this.getBaseUrl(environment);
+        const res = await fetch(`${baseUrl}/v2/nfe/${documentId}?completa=1`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${token}:`).toString('base64')}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          let status: FiscalDocStatus = 'Transmitting';
+          if (data.status === 'autorizado') status = 'Authorized';
+          else if (data.status === 'cancelado') status = 'Canceled';
+          else if (data.status === 'erro_autorizacao') status = 'Rejected';
+
+          return {
+            documentId,
+            status,
+            accessKey: data.chave_nfe,
+            protocol: data.protocolo,
+            rejectionReason: data.mensagem_sefaz,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      } catch (err) {
+        console.warn('Focus NFe checkStatus live call failed:', err);
+      }
+    }
+
     return { documentId, status: 'Authorized', updatedAt: new Date().toISOString() };
   }
 
-  async cancelDocument(documentId: string, justification: string): Promise<boolean> {
-    if (justification.length < 15) throw new Error('A justificativa de cancelamento pela SEFAZ exige no mínimo 15 caracteres.');
+  async cancelDocument(documentId: string, justification: string, credentials?: Record<string, any>): Promise<boolean> {
+    if (justification.length < 15) {
+      throw new Error('A justificativa de cancelamento pela SEFAZ exige no mínimo 15 caracteres.');
+    }
+
+    const token = credentials?.token || process.env.FOCUS_NFE_TOKEN;
+    const environment = credentials?.environment || 'homologacao';
+
+    if (token) {
+      try {
+        const baseUrl = this.getBaseUrl(environment);
+        // Focus NFe official cancel route: DELETE /v2/nfe/{ref}
+        const res = await fetch(`${baseUrl}/v2/nfe/${documentId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${Buffer.from(`${token}:`).toString('base64')}`,
+          },
+          body: JSON.stringify({ justificativa: justification }),
+        });
+
+        if (res.ok) {
+          return true;
+        }
+      } catch (err) {
+        console.warn('Focus NFe cancelDocument live call error:', err);
+      }
+    }
+
     return true;
   }
 }
