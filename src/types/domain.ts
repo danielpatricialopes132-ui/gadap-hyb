@@ -22,7 +22,7 @@ export interface Company {
     zipCode: string;
   };
   fiscalSettings: {
-    provider?: 'focus_nfe' | 'fiscal_contora';
+    provider?: 'focus_nfe' | 'fiscal_contora' | 'contora';
     environment: 'homologacao' | 'producao';
     certificateA1Installed: boolean;
     certificateExpiresAt?: string;

@@ -219,18 +219,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextNumber = activeCompany.fiscalSettings.nfeCurrentNumber + 1;
     const currentSeries = activeCompany.fiscalSettings.nfeSeries;
 
-    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'focus_nfe');
-    const credentials =
-      activeCompany.fiscalSettings.provider === 'fiscal_contora'
-        ? {
-            apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
-            secret: activeCompany.fiscalSettings.fiscalContoraSecret,
-            environment: activeCompany.fiscalSettings.environment,
-          }
-        : {
-            token: activeCompany.fiscalSettings.focusNfeToken,
-            environment: activeCompany.fiscalSettings.environment,
-          };
+    const isContora =
+      activeCompany.fiscalSettings.provider === 'fiscal_contora' ||
+      activeCompany.fiscalSettings.provider === 'contora';
+
+    const provider = fiscalGateway.getProvider(isContora ? 'contora' : 'focus_nfe');
+    const credentials = isContora
+      ? {
+          apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
+          secret: activeCompany.fiscalSettings.fiscalContoraSecret,
+          environment: activeCompany.fiscalSettings.environment,
+        }
+      : {
+          token: activeCompany.fiscalSettings.focusNfeToken,
+          environment: activeCompany.fiscalSettings.environment,
+        };
 
     const resp = await provider.transmitNFe(
       {
@@ -317,18 +320,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const nextNumber = activeCompany.fiscalSettings.nfseCurrentNumber + 1;
     const currentSeries = activeCompany.fiscalSettings.nfseSeries;
 
-    const provider = fiscalGateway.getProvider(activeCompany.fiscalSettings.provider || 'focus_nfe');
-    const credentials =
-      activeCompany.fiscalSettings.provider === 'fiscal_contora'
-        ? {
-            apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
-            secret: activeCompany.fiscalSettings.fiscalContoraSecret,
-            environment: activeCompany.fiscalSettings.environment,
-          }
-        : {
-            token: activeCompany.fiscalSettings.focusNfeToken,
-            environment: activeCompany.fiscalSettings.environment,
-          };
+    const isContora =
+      activeCompany.fiscalSettings.provider === 'fiscal_contora' ||
+      activeCompany.fiscalSettings.provider === 'contora';
+
+    const provider = fiscalGateway.getProvider(isContora ? 'contora' : 'focus_nfe');
+    const credentials = isContora
+      ? {
+          apiKey: activeCompany.fiscalSettings.fiscalContoraApiKey,
+          secret: activeCompany.fiscalSettings.fiscalContoraSecret,
+          environment: activeCompany.fiscalSettings.environment,
+        }
+      : {
+          token: activeCompany.fiscalSettings.focusNfeToken,
+          environment: activeCompany.fiscalSettings.environment,
+        };
 
     const resp = await provider.transmitNFSe(
       {

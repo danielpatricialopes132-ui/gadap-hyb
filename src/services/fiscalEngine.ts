@@ -419,8 +419,8 @@ export class UniversalFiscalGateway {
   private focusNfe = new FocusNFeProvider();
   private fiscalContora = new FiscalContoraProvider();
 
-  getProvider(providerType: 'focus_nfe' | 'fiscal_contora' = 'focus_nfe'): FiscalProvider {
-    if (providerType === 'fiscal_contora') {
+  getProvider(providerType: 'focus_nfe' | 'fiscal_contora' | 'contora' = 'focus_nfe'): FiscalProvider {
+    if (providerType === 'fiscal_contora' || providerType === 'contora') {
       return this.fiscalContora;
     }
     // Focus NFe is primary default

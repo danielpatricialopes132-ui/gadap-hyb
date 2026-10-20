@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { FiscalDocument, FiscalDocStatus, FiscalDocType } from '@/types/domain';
-import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2, Table, Mail } from 'lucide-react';
+import { FileCode, Send, Plus, CheckCircle, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Download, Ban, Eye, FileText, ArrowUpRight, Cpu, MessageCircle, Check, Loader2, Sparkles, Bot, Trash2, Table, Mail, Play, RotateCw } from 'lucide-react';
 
 export default function FiscalModule() {
   const {
@@ -76,7 +76,7 @@ export default function FiscalModule() {
   const [aiError, setAiError] = useState<string | null>(null);
 
   // Settings form
-  const [provider, setProvider] = useState<'focus_nfe' | 'fiscal_contora'>(
+  const [provider, setProvider] = useState<'focus_nfe' | 'fiscal_contora' | 'contora'>(
     activeCompany?.fiscalSettings.provider || 'focus_nfe'
   );
   const [focusToken, setFocusToken] = useState(
@@ -98,6 +98,51 @@ export default function FiscalModule() {
   const [nfeCurrentNumber, setNfeCurrentNumber] = useState(activeCompany?.fiscalSettings.nfeCurrentNumber || 1);
   const [nfseSeries, setNfseSeries] = useState(activeCompany?.fiscalSettings.nfseSeries || 1);
   const [nfseCurrentNumber, setNfseCurrentNumber] = useState(activeCompany?.fiscalSettings.nfseCurrentNumber || 1);
+
+  // Simulated Test Emission State
+  const [isTestingEmission, setIsTestingEmission] = useState(false);
+  const [testEmissionResult, setTestEmissionResult] = useState<any>(null);
+  const [isTestEmissionModalOpen, setIsTestEmissionModalOpen] = useState(false);
+
+  const handleRunTestEmission = async () => {
+    setIsTestingEmission(true);
+    setTestEmissionResult(null);
+    setIsTestEmissionModalOpen(true);
+
+    try {
+      const activeProvider = activeCompany?.fiscalSettings.provider || 'focus_nfe';
+      const isContora = activeProvider === 'fiscal_contora' || activeProvider === 'contora';
+      const res = await fetch('/api/fiscal/test-emission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: isContora ? 'contora' : 'focus_nfe',
+          company: {
+            id: activeCompany?.id,
+            cnpj: activeCompany?.cnpj,
+            series: activeCompany?.fiscalSettings.nfeSeries || 1,
+            number: (activeCompany?.fiscalSettings.nfeCurrentNumber || 1) + 1,
+          },
+          credentials: {
+            focusToken: activeCompany?.fiscalSettings.focusNfeToken || undefined,
+            contoraApiKey: activeCompany?.fiscalSettings.fiscalContoraApiKey || undefined,
+            contoraSecret: activeCompany?.fiscalSettings.fiscalContoraSecret || undefined,
+            environment: activeCompany?.fiscalSettings.environment || 'homologacao',
+          },
+        }),
+      });
+
+      const data = await res.json();
+      setTestEmissionResult(data);
+    } catch (err: any) {
+      setTestEmissionResult({
+        success: false,
+        error: err.message || 'Falha na conexão com o motor fiscal',
+      });
+    } finally {
+      setIsTestingEmission(false);
+    }
+  };
 
   const availableCatalog = catalog.filter((c) =>
     docTypeToIssue === 'NFe' ? c.type === 'product' : c.type === 'service'
@@ -412,6 +457,14 @@ export default function FiscalModule() {
           >
             <Sparkles className="w-4 h-4 text-purple-200 animate-pulse" />
             <span>Copiloto Fiscal IA (Gemini)</span>
+          </button>
+          <button
+            onClick={handleRunTestEmission}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 flex items-center gap-2 transition-all cursor-pointer border border-cyan-400/30"
+            title="Disparar teste de emissão simulado na SEFAZ pelo provedor ativo"
+          >
+            <Play className="w-3.5 h-3.5 fill-current text-cyan-200" />
+            <span>Testar Provedor</span>
           </button>
           <button
             onClick={() => setIsSettingsModalOpen(true)}
@@ -1140,20 +1193,29 @@ export default function FiscalModule() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsSettingsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium cursor-pointer"
+              <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+                <a
+                  href="/settings/fiscal"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1.5"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 cursor-pointer"
-                >
-                  Salvar Parâmetros
-                </button>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  Abrir Página Completa de Configurações
+                </a>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 cursor-pointer"
+                  >
+                    Salvar Parâmetros
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1636,6 +1698,140 @@ export default function FiscalModule() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal de Simulação e Diagnóstico de Emissão Fiscal */}
+      {isTestEmissionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <Play className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    Diagnóstico de Emissão Fiscal (Simulação SEFAZ)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Provedor testado:{' '}
+                    <strong className="text-indigo-300">
+                      {activeCompany?.fiscalSettings.provider === 'fiscal_contora' ||
+                      activeCompany?.fiscalSettings.provider === 'contora'
+                        ? 'Fiscal Contora (Secundário)'
+                        : 'Focus NFe (Principal)'}
+                    </strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsTestEmissionModalOpen(false)}
+                className="text-slate-400 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {isTestingEmission ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                  <RotateCw className="w-8 h-8 text-indigo-400 animate-spin" />
+                  <p className="text-xs text-slate-300 font-medium">Transmitindo NF-e de teste para a SEFAZ...</p>
+                  <p className="text-[11px] text-slate-500">Mapeando payload tributário e autenticando via Provedor</p>
+                </div>
+              ) : testEmissionResult ? (
+                <div className="space-y-4">
+                  <div
+                    className={`p-4 rounded-xl border flex items-center justify-between ${
+                      testEmissionResult.success
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {testEmissionResult.success ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-rose-400" />
+                      )}
+                      <div>
+                        <div className="text-xs font-bold">
+                          {testEmissionResult.success ? 'Emissão Autorizada com Sucesso!' : 'Falha na Emissão Fiscal'}
+                        </div>
+                        <div className="text-[11px] opacity-80">
+                          {testEmissionResult.result?.message || testEmissionResult.error}
+                        </div>
+                      </div>
+                    </div>
+
+                    {testEmissionResult.durationMs && (
+                      <span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-900/60 text-slate-300">
+                        Latência: {testEmissionResult.durationMs}ms
+                      </span>
+                    )}
+                  </div>
+
+                  {testEmissionResult.success && testEmissionResult.result && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                        <span className="text-[10px] text-slate-500 block">Status SEFAZ</span>
+                        <span className="text-xs font-bold text-emerald-400">{testEmissionResult.result.status}</span>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
+                        <span className="text-[10px] text-slate-500 block">Protocolo</span>
+                        <span className="text-xs font-mono font-bold text-white">
+                          {testEmissionResult.result.protocol || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 col-span-2 sm:col-span-1">
+                        <span className="text-[10px] text-slate-500 block">Provedor Executado</span>
+                        <span className="text-xs font-bold text-indigo-400">{testEmissionResult.providerUsed}</span>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 col-span-2 sm:col-span-3">
+                        <span className="text-[10px] text-slate-500 block">Chave de Acesso (44 Dígitos)</span>
+                        <span className="text-xs font-mono text-cyan-300 break-all">
+                          {testEmissionResult.result.accessKey}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-400 block mb-1.5 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      Logs de Transmissão e Resposta do Provedor:
+                    </span>
+                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 space-y-1 max-h-48 overflow-y-auto">
+                      {testEmissionResult.logs ? (
+                        testEmissionResult.logs.map((log: string, idx: number) => (
+                          <div key={idx} className="leading-relaxed">
+                            {log}
+                          </div>
+                        ))
+                      ) : (
+                        <div>Sem logs registrados.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">
+                Homologação sem efeitos fiscais ou jurídicos reais.
+              </span>
+              <button
+                onClick={handleRunTestEmission}
+                disabled={isTestingEmission}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                Repetir Teste
+              </button>
+            </div>
           </div>
         </div>
       )}
