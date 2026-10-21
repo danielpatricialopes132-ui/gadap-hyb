@@ -411,6 +411,16 @@ export default function HelpAndManualView() {
                 Na barra superior de ações do módulo fiscal, clique no botão <strong>"Pacote Contador"</strong>. O sistema compila automaticamente uma planilha auditada com todas as notas autorizadas, canceladas, valores, impostos e chaves de acesso do mês para envio à contabilidade.
               </p>
             </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-purple-400" />
+                Como funciona a Auditoria Semanal de Impostos?
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Na aba <strong>"Produtos & Serviços"</strong>, o botão <strong>"Auditoria Semanal de Impostos"</strong> varre todos os itens cadastrados contra as regras vigentes da SEFAZ, CONFAZ e Reforma Tributária (IBS/CBS). Caso seja detectada exigência de ICMS-ST ou mudança de alíquota, o sistema alerta e permite corrigir o CFOP/CEST com 1 clique.
+              </p>
+            </div>
           </div>
         </div>
       )}

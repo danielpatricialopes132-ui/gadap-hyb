@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { CatalogItem, ItemType } from '@/types/domain';
-import { Package, Plus, Search, Filter, Trash2, Edit3, Tag, DollarSign, Layers, Wrench } from 'lucide-react';
+import { Package, Plus, Search, Filter, Trash2, Edit3, Tag, DollarSign, Layers, Wrench, Sparkles, ShieldAlert, RotateCw, CheckCircle2, ChevronRight, AlertTriangle, Calendar, Check } from 'lucide-react';
+import { TaxChangeAlert } from '@/app/api/fiscal/weekly-tax-audit/route';
 
 export default function CatalogManager() {
   const { catalog, addCatalogItem, updateCatalogItem, deleteCatalogItem, activeCompany } = useApp();
@@ -11,6 +12,13 @@ export default function CatalogManager() {
   const [filterType, setFilterType] = useState<'all' | 'product' | 'service'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Weekly Tax Audit Scanner State
+  const [isTaxAuditModalOpen, setIsTaxAuditModalOpen] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditAlerts, setAuditAlerts] = useState<TaxChangeAlert[]>([]);
+  const [lastAuditDate, setLastAuditDate] = useState<string | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   // Form State
   const [type, setType] = useState<ItemType>('product');
@@ -108,6 +116,60 @@ export default function CatalogManager() {
     setIsModalOpen(false);
   };
 
+  const handleRunTaxAudit = async () => {
+    setIsAuditing(true);
+    setAuditError(null);
+    try {
+      const res = await fetch('/api/fiscal/weekly-tax-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: catalog.map((c) => ({
+            id: c.id,
+            code: c.code,
+            description: c.description,
+            type: c.type,
+            ncm: c.ncm,
+            cest: c.cest,
+            cfop: c.cfop,
+            currentIssRate: c.issRate,
+          })),
+          companyState: activeCompany?.address.state || 'SP',
+          companyTaxRegime: activeCompany?.taxRegime || 'Simples Nacional',
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setAuditAlerts(data.alerts || []);
+        setLastAuditDate(new Date().toLocaleDateString('pt-BR'));
+        setIsTaxAuditModalOpen(true);
+      } else {
+        setAuditError(data.error || 'Falha ao executar auditoria semanal.');
+        setIsTaxAuditModalOpen(true);
+      }
+    } catch (err: any) {
+      setAuditError(err.message || 'Erro ao conectar ao auditor fiscal.');
+      setIsTaxAuditModalOpen(true);
+    } finally {
+      setIsAuditing(false);
+    }
+  };
+
+  const handleApplySuggestion = (alert: TaxChangeAlert) => {
+    if (!alert.suggestedUpdate) return;
+    const item = catalog.find((c) => c.id === alert.itemId);
+    if (!item) return;
+
+    updateCatalogItem(alert.itemId, {
+      cfop: alert.suggestedUpdate.cfop || item.cfop,
+      cest: alert.suggestedUpdate.cest || item.cest,
+      issRate: alert.suggestedUpdate.issRate || item.issRate,
+    });
+
+    setAuditAlerts((prev) => prev.filter((a) => a.itemId !== alert.itemId));
+  };
+
   return (
     <div className="space-y-6">
       {/* Action Header */}
@@ -121,13 +183,24 @@ export default function CatalogManager() {
             Empresa ativa: <strong className="text-indigo-300">{activeCompany?.tradeName}</strong>. Suporte completo para NCM, CEST, CFOP, Origem e LC 116 para NFS-e.
           </p>
         </div>
-        <button
-          onClick={openNewModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Item no Catálogo</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleRunTaxAudit}
+            disabled={isAuditing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-lg shadow-purple-600/25 transition-all cursor-pointer border border-purple-400/30 disabled:opacity-50"
+            title="Escanear semanalmente o catálogo contra mudanças de tributos, ICMS-ST, alíquotas e reforma tributária"
+          >
+            {isAuditing ? <RotateCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4 text-purple-200" />}
+            <span>Auditoria Semanal de Impostos</span>
+          </button>
+          <button
+            onClick={openNewModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Item no Catálogo</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters and Search Bar */}
@@ -507,6 +580,145 @@ export default function CatalogManager() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Auditoria Tributária Semanal de Mudanças de Impostos */}
+      {isTaxAuditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-purple-500/30 rounded-2xl w-full max-w-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500" />
+
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>Auditoria Semanal de Tributos & Alíquotas</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono">
+                      SEFAZ • Receita • Reforma
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Monitoramento contínuo de NCM, CEST, ICMS-ST e alíquotas para {activeCompany?.name} ({activeCompany?.address.state}).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTaxAuditModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="py-4 overflow-y-auto space-y-3.5 pr-1 flex-1">
+              {auditError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{auditError}</span>
+                </div>
+              )}
+
+              {lastAuditDate && (
+                <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-950/60 rounded-xl border border-slate-800 text-slate-400">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Último Varredura Semanal: <strong className="text-white">{lastAuditDate}</strong></span>
+                  </div>
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {auditAlerts.length} itens analisados
+                  </span>
+                </div>
+              )}
+
+              {auditAlerts.length === 0 && !auditError && (
+                <div className="text-center py-8 space-y-2">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
+                  <p className="text-sm font-bold text-white">Nenhuma inconformidade fiscal detectada!</p>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    Todos os NCMs, CFOPs e alíquotas de ISS do seu catálogo estão em conformidade com as tabelas vigentes da SEFAZ e Receita Federal.
+                  </p>
+                </div>
+              )}
+
+              {auditAlerts.map((alert, idx) => (
+                <div
+                  key={idx}
+                  className={`p-4 rounded-xl border transition-all ${
+                    alert.severity === 'alta'
+                      ? 'bg-rose-950/20 border-rose-500/40 text-slate-200'
+                      : alert.severity === 'media'
+                      ? 'bg-amber-950/20 border-amber-500/40 text-slate-200'
+                      : 'bg-slate-800/40 border-slate-700/60 text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[9px] uppercase px-1.5 py-0.2 rounded font-bold font-mono ${
+                            alert.severity === 'alta'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                              : alert.severity === 'media'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                          }`}
+                        >
+                          {alert.severity}
+                        </span>
+                        <span className="text-xs font-bold text-white">{alert.title}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        Item: <strong className="text-indigo-300">{alert.itemDescription}</strong> ({alert.code}) • Identificador: <span className="font-mono text-white">{alert.ncmOrLc116}</span>
+                      </div>
+                    </div>
+
+                    {alert.suggestedUpdate && (
+                      <button
+                        onClick={() => handleApplySuggestion(alert)}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shrink-0 cursor-pointer shadow-sm transition-all"
+                        title="Aplicar ajuste fiscal sugerido automaticamente"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Corrigir</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                    {alert.description}
+                  </p>
+
+                  <div className="mt-3 pt-2 border-t border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-slate-400">
+                    <div>
+                      Base Legal: <span className="font-mono text-slate-300">{alert.legalReference}</span>
+                    </div>
+                    <div className="text-indigo-300 font-medium">
+                      Ação: {alert.recommendedAction}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-between items-center pt-3 border-t border-slate-800 shrink-0">
+              <span className="text-[11px] text-slate-400">
+                Rotina sugerida: Executar semanalmente ou a cada virada de mês contábil.
+              </span>
+              <button
+                onClick={() => setIsTaxAuditModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium cursor-pointer"
+              >
+                Concluir Visualização
+              </button>
+            </div>
           </div>
         </div>
       )}
