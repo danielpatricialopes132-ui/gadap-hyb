@@ -8,6 +8,7 @@ import {
   FiscalContoraProvider,
 } from '../fiscalEngine';
 import { ContoraProvider } from './contora';
+import { GadapFiscalCoreProvider, DocumentoFiscalInput } from './gadapCore';
 
 /**
  * MOCK FISCAL PROVIDER
@@ -66,31 +67,44 @@ export class MockFiscalProvider implements FiscalProvider {
 /**
  * FISCAL FACTORY / STRATEGY
  * Instantiates the appropriate fiscal adapter based on company configuration:
- * - FocusNFeProvider (Primary default, uses FOCUS_NFE_TOKEN / FOCUS_NFE_ENV)
+ * - GadapFiscalCoreProvider (Primary default local FastAPI engine: GADAP_FISCAL_CORE_URL / FISCAL_PROVIDER="gadap_fiscal_core")
+ * - FocusNFeProvider (Uses FOCUS_NFE_TOKEN / FOCUS_NFE_ENV)
  * - ContoraProvider (Secondary adapter, uses CONTORA_API_KEY / CONTORA_ENV)
  * - MockFiscalProvider (Local sandbox fallback if no credentials are configured)
  */
 export function getFiscalProvider(
-  providerType?: 'focus_nfe' | 'fiscal_contora' | 'contora' | string,
+  providerType?: 'gadap_fiscal_core' | 'focus_nfe' | 'fiscal_contora' | 'contora' | string,
   credentials?: {
     focusToken?: string;
     contoraApiKey?: string;
     contoraSecret?: string;
+    fiscalCoreUrl?: string;
   }
 ): FiscalProvider {
-  const chosen = providerType?.toLowerCase();
+  const envProvider = process.env.FISCAL_PROVIDER?.toLowerCase();
+  const chosen = (providerType || envProvider)?.toLowerCase();
+
+  // 1. Provedor Local Próprio: Gadap Fiscal Core
+  if (chosen === 'gadap_fiscal_core' || chosen === 'gadap_core' || chosen === 'fiscal_core') {
+    return new GadapFiscalCoreProvider();
+  }
+
+  // Se GADAP_FISCAL_CORE_URL estiver configurado ou FISCAL_PROVIDER for gadap_fiscal_core e nenhum outro foi forçado
+  if (!providerType && (process.env.GADAP_FISCAL_CORE_URL || process.env.FISCAL_PROVIDER === 'gadap_fiscal_core')) {
+    return new GadapFiscalCoreProvider();
+  }
 
   if (chosen === 'focus_nfe') {
     return new FocusNFeProvider();
   }
 
-  // Fiscal Contora (Provedor Principal Padrão)
+  // Fiscal Contora
   const hasContoraKey =
     Boolean(credentials?.contoraApiKey) ||
     Boolean(process.env.CONTORA_API_KEY) ||
     Boolean(process.env.FISCAL_CONTORA_API_KEY);
 
-  if (hasContoraKey) {
+  if (chosen === 'contora' || chosen === 'fiscal_contora' || (!chosen && hasContoraKey)) {
     return new ContoraProvider();
   }
 
@@ -103,16 +117,18 @@ export function getFiscalProvider(
     return new FocusNFeProvider();
   }
 
-  // Fallback to Mock if neither key exists
-  if (!hasContoraKey && !hasFocusToken) {
-    return new MockFiscalProvider();
+  // Default para Gadap Fiscal Core se configurado no ambiente
+  if (process.env.GADAP_FISCAL_CORE_URL) {
+    return new GadapFiscalCoreProvider();
   }
 
-  return new ContoraProvider();
+  // Fallback to Mock if no provider configured
+  return new MockFiscalProvider();
 }
 
 // Re-export providers & interfaces for standard usage
-export { FocusNFeProvider, ContoraProvider, FiscalContoraProvider };
+export { FocusNFeProvider, ContoraProvider, FiscalContoraProvider, GadapFiscalCoreProvider };
+export type { DocumentoFiscalInput };
 export type {
   FiscalProvider,
   NFePayload,
@@ -120,3 +136,4 @@ export type {
   FiscalResponse,
   FiscalStatus,
 } from '../fiscalEngine';
+

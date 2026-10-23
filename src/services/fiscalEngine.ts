@@ -412,29 +412,38 @@ export class FiscalContoraProvider implements FiscalProvider {
 }
 
 /**
+ * PROVEDOR LOCAL FASTAPI: Gadap Fiscal Core
+ * Emissão direta via motor Python em C:\Nota_Fiscal
+ */
+export { GadapFiscalCoreProvider } from './fiscal/gadapCore';
+export type { DocumentoFiscalInput } from './fiscal/gadapCore';
+
+/**
  * Universal Fiscal Gateway Router
- * Resolves between Focus NFe (Principal) and Fiscal Contora (Secundária) dynamically per tenant
+ * Resolves between Gadap Fiscal Core (Motor Local), Contora and Focus NFe
  */
 export class UniversalFiscalGateway {
   private focusNfe = new FocusNFeProvider();
   private fiscalContora = new FiscalContoraProvider();
 
-  getProvider(providerType: 'focus_nfe' | 'fiscal_contora' | 'contora' = 'contora'): FiscalProvider {
+  getProvider(providerType: 'gadap_fiscal_core' | 'focus_nfe' | 'fiscal_contora' | 'contora' = 'gadap_fiscal_core'): FiscalProvider {
     if (providerType === 'focus_nfe') {
       return this.focusNfe;
     }
-    // Fiscal Contora is primary default
-    return this.fiscalContora;
+    if (providerType === 'fiscal_contora' || providerType === 'contora') {
+      return this.fiscalContora;
+    }
+    // Gadap Fiscal Core is default local provider
+    const { GadapFiscalCoreProvider } = require('./fiscal/gadapCore');
+    return new GadapFiscalCoreProvider();
   }
 
   /**
-   * Transmits NF-e with automatic Circuit Breaker & Failover:
-   * 1. Attempts Primary Provider (Fiscal Contora).
-   * 2. If network timeout or HTTP 5xx occurs, automatically fails over to Secondary (Focus NFe).
+   * Transmits NF-e with automatic Circuit Breaker & Failover
    */
   async transmitNFeWithFailover(
     payload: NFePayload,
-    preferredProvider: 'focus_nfe' | 'fiscal_contora' | 'contora' = 'contora',
+    preferredProvider: 'gadap_fiscal_core' | 'focus_nfe' | 'fiscal_contora' | 'contora' = 'gadap_fiscal_core',
     credentials?: {
       focusToken?: string;
       contoraApiKey?: string;
@@ -442,14 +451,16 @@ export class UniversalFiscalGateway {
       environment?: 'homologacao' | 'producao';
     }
   ): Promise<FiscalResponse & { failedOver?: boolean }> {
-    const isContoraFirst = preferredProvider !== 'focus_nfe';
-    const primary = isContoraFirst ? this.fiscalContora : this.focusNfe;
-    const secondary = isContoraFirst ? this.focusNfe : this.fiscalContora;
+    const primary = this.getProvider(preferredProvider);
+    const secondary = preferredProvider === 'gadap_fiscal_core' ? this.fiscalContora : this.focusNfe;
 
     try {
-      const primaryCreds = isContoraFirst
-        ? { apiKey: credentials?.contoraApiKey, secret: credentials?.contoraSecret, environment: credentials?.environment }
-        : { token: credentials?.focusToken, environment: credentials?.environment };
+      const primaryCreds = {
+        apiKey: credentials?.contoraApiKey,
+        secret: credentials?.contoraSecret,
+        token: credentials?.focusToken,
+        environment: credentials?.environment,
+      };
 
       const res = await primary.transmitNFe(payload, primaryCreds);
       if (res && res.success) {
@@ -459,9 +470,12 @@ export class UniversalFiscalGateway {
     } catch (err: any) {
       console.warn(`[FiscalGateway] Primário (${primary.name}) instável. Disparando failover imediato para ${secondary.name}:`, err.message);
 
-      const secondaryCreds = !isContoraFirst
-        ? { apiKey: credentials?.contoraApiKey, secret: credentials?.contoraSecret, environment: credentials?.environment }
-        : { token: credentials?.focusToken, environment: credentials?.environment };
+      const secondaryCreds = {
+        apiKey: credentials?.contoraApiKey,
+        secret: credentials?.contoraSecret,
+        token: credentials?.focusToken,
+        environment: credentials?.environment,
+      };
 
       const fallbackRes = await secondary.transmitNFe(payload, secondaryCreds);
       return {
@@ -474,3 +488,4 @@ export class UniversalFiscalGateway {
 }
 
 export const fiscalGateway = new UniversalFiscalGateway();
+
